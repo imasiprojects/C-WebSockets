@@ -6,7 +6,8 @@ namespace WebSocket
 	static std::string mask(std::string text, unsigned char opCode = 0x1)
 	{
 		int length = text.size();
-		std::string header = std::to_string(0x80 | opCode & 0x0f);
+		std::string header;
+		header += 0x80 | opCode & 0x0f;
 
 		if (length <= 125)
 		{

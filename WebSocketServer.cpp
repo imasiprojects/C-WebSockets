@@ -191,7 +191,7 @@ void WebSocketServer::WebSocketConnection::threadFunction()
 				case 0x9:
 				{
 					// Ping
-					pong();
+					//pong();
 					break;
 				}
 				case 0xA:

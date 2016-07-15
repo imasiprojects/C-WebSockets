@@ -1,8 +1,9 @@
 #include "WebSocketServer.hpp"
 
-WebSocketServer::WebSocketServer(){
+WebSocketServer::WebSocketServer()
+:_onNewClient(nullptr),_onUnknownMessage(nullptr){
     _onNewClient = nullptr;
-    _onUnknownClientMessage = nullptr;
+    _onUnknownMessage = nullptr;
 }
 
 WebSocketServer::~WebSocketServer(){
@@ -19,7 +20,16 @@ bool WebSocketServer::start(unsigned short port){
 }
 
 void WebSocketServer::close(){
-    #error TODO: Join threads
+    for(WebSocketConnection* wsc:_connections){
+        wsc->stopAndWait();
+        delete wsc;
+    }
+    _connections.clear();
+    _server.finish();
+}
+
+bool WebSocketServer::isRunning() const{
+    return _server.isOn();
 }
 
 bool WebSocketServer::newClient(){
@@ -29,18 +39,35 @@ bool WebSocketServer::newClient(){
     if(conn.sock == SOCKET_ERROR)
         return false;
 
-    #error Mutex on _clienThreads
-    _clientThreads.insert(
-        new std::thread(
-            clientThreadFunction,
-            std::ref(*this),
-            conn
-        )
-    );
+    _connections.insert(new WebSocketConnection(
+        this, conn
+    ));
     return true;
 }
 
-void clientThreadFunction(WebSocketServer& srv, Connection conn){
+bool WebSocketServer::setNewClientCallback(WSNewClientCallback callback){
+    if(isRunning())
+        return false;
+    _onNewClient = callback;
+    return true;
+}
 
-    #error Delete his own thread
+bool WebSocketServer::setDataCallback(std::string key, WSImasiCallback callback){
+    if(isRunning())
+        return false;
+    _messageCallbacks[key] = callback;
+    return true;
+}
+
+bool WebSocketServer::setUnknownDataCallback(WSImasiCallback callback){
+    if(isRunning())
+        return false;
+    _onUnknownMessage = callback;
+    return true;
+}
+
+bool WebSocketServer::sendBroadcast(std::string key, std::string data){
+    for(WebSocketConnection* conn:_connections){
+        conn->send(key, data);
+    }
 }

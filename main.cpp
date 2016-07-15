@@ -79,6 +79,8 @@ void server()
 				std::cout << "HandShake done" << std::endl;
 			}
 		}
+
+		delete client;
 	}
 
 	delete server;

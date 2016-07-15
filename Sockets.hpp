@@ -4,20 +4,18 @@
 #include <vector>
 #include <winsock2.h>
 
-using namespace std;
-
 struct Connection {
 	SOCKET sock;
-	string ip;
+	std::string ip;
 
 	Connection() :sock(INVALID_SOCKET) {}
 };
 
 typedef void(TCPSocketCallback)(Connection c);
 
-string recv(SOCKET s, size_t maxChars = 1024);
+std::basic_string<char> recv(SOCKET s, size_t maxChars = 1024);
 
-bool send(SOCKET s, string msg);
+bool send(SOCKET s, std::string msg);
 
 void setBlocking(SOCKET sock, bool blocking);
 
@@ -35,8 +33,8 @@ public:
 	~TCPRawServer();
 	bool start(unsigned short port);
 	void finish();
-	Connection newClient();
-	bool newClient(TCPSocketCallback* callback, bool detach = true);
+	Connection newClient() const;
+	bool newClient(TCPSocketCallback* callback, bool detach = true) const;
 	bool isOn()const;
 	unsigned short getPort()const;
 	void setBlocking(bool blocking);
@@ -46,13 +44,14 @@ public:
 class TCPServer :public TCPRawServer {
 	struct _client {
 		SOCKET socket;
-		string ip;
+		std::string ip;
 		bool blocking;
-		vector<string> data;
+		std::vector<std::string> data;
 
 		_client() :socket(INVALID_SOCKET), blocking(0) {}
 	};
-	vector<_client> _clients;
+
+	std::vector<_client> _clients;
 
 public:
 	TCPServer();
@@ -60,10 +59,10 @@ public:
 	~TCPServer();
 	bool newClient();
 	void disconnectClient(size_t clientN);
-	string recv(size_t clientN, size_t maxChars = 1024);
-	bool send(size_t clientN, string msg);
-	vector<string>* getData(size_t clientN);
-	string getIp(size_t clientN)const;
+	std::string recv(size_t clientN, size_t maxChars = 1024);
+	bool send(size_t clientN, std::string msg);
+	std::vector<std::string>* getData(size_t clientN);
+	std::string getIp(size_t clientN)const;
 	void setBlocking(size_t clientN, bool blocking);
 	bool isBlocking(size_t clientN)const;
 	size_t getClientCount()const;
@@ -72,22 +71,22 @@ public:
 
 class TCPClient {
 	SOCKET _socket;
-	string _ip;
+	std::string _ip;
 	unsigned short _port;
 	bool _connected;
 	bool _blocking;
 
 public:
 	TCPClient();
-	TCPClient(string ip, unsigned short port);
+	TCPClient(std::string ip, unsigned short port);
 	~TCPClient();
-	bool connect(string ip, unsigned short port);
-	void connect(SOCKET sock, string ip, unsigned short port);
+	bool connect(std::string ip, unsigned short port);
+	void connect(SOCKET sock, std::string ip, unsigned short port);
 	void disconnect();
-	string recv(int maxChars = 1024);
-	bool send(const string& msg);
+	std::string recv(int maxChars = 1024);
+	bool send(const std::string& msg);
 	bool isConnected()const;
-	string getIp()const;
+	std::string getIp()const;
 	unsigned short getPort()const;
 	void setBlocking(bool blocking);
 	bool isBlocking()const;

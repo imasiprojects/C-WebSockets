@@ -1,38 +1,52 @@
 #pragma once
 
+#include <string>
+#include <map>
+#include <list>
+#include <thread>
 
+#include "sockets.hpp"
+
+class WebSocketServer;
+
+typedef void(*WSCallback)(WebSocketServer& srv, std::string data);
+typedef void(*WSImasiCallback)(WebSocketServer& srv, std::string data);
 
 class WebSocketServer {
+    TCPRawServer _server;
+
     /// Native
-    Callback onNewClient;
-    Callback onUnknownClientMessage;
+    WSCallback _onNewClient;
+    WSCallback _onUnknownClientMessage;
 
     /// IMASI Protocol
-    map<string, IMASICallback> clientMsg;
+    std::map<std::string, WSImasiCallback> _clientMsg;
 
 
-    list<thread> clientThreads;
-    static void clientThreadFunction(WebSocketServer& srv);
+    std::list<std::thread*> _clientThreads;
+    static void clientThreadFunction(WebSocketServer& srv, Connection conn);
 
 public:
-    WebSocketServer(); // Do nothing
-    ~WebSocketServer(); // Wait threads
+    WebSocketServer();
+    ~WebSocketServer();
 
-    start();
-    close();
+    bool start(unsigned short port);
+    void close();
+
+    bool newClient();
 
     /// Native
-    setClientCallback(Callback callback)
-    setNewClientCallback(Callback callback)
+    void setDataCallback(WSCallback callback);
+    void setNewClientCallback(WSCallback callback);
 
-    send(string data)
-    sendBroadcast(string data)
+    bool send(std::string data);
+    bool sendBroadcast(std::string data);
 
 
     /// IMASI Protocol
-    addClientCallback(string key, IMASICallback callback)
+    void setDataCallback(std::string key, WSImasiCallback callback);
 
-    send(string key, string data)
-    sendBroadcast(string key, string data)
+    bool send(std::string key, std::string data);
+    bool sendBroadcast(std::string key, std::string data);
 
 };

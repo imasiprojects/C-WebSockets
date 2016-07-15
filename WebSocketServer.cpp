@@ -87,7 +87,7 @@ WebSocketServer::WebSocketConnection::~WebSocketConnection(){
 }
 
 void WebSocketServer::WebSocketConnection::send(std::string key, std::string data){
-    //#error TODO
+    #error TODO
 }
 
 void WebSocketServer::WebSocketConnection::stop(){
@@ -102,6 +102,10 @@ void WebSocketServer::WebSocketConnection::stopAndWait(){
 
 bool WebSocketServer::WebSocketConnection::isRunning() const{
     return _isRunning;
+}
+
+void WebSocketServer::WebSocketConnection::pong(std::string data){
+    _conn.send(WebSocket::mask(data, 0xA));
 }
 
 void WebSocketServer::WebSocketConnection::threadFunction()
@@ -190,8 +194,7 @@ void WebSocketServer::WebSocketConnection::threadFunction()
 				}
 				case 0x9:
 				{
-					// Ping
-					//pong();
+					pong();
 					break;
 				}
 				case 0xA:

@@ -36,7 +36,7 @@ class WebSocketServer {
         void send(std::string key, std::string data);
 
 		void ping();
-		void pong();
+		void pong(std::string data);
 
         void stop();
         void stopAndWait();

@@ -96,23 +96,24 @@ void server()
 
 std::string mask(std::string text)
 {
+	unsigned char magicNumber = 0x80 | 0x1 & 0x0f;
 	int length = text.size();
 
 	std::string header;
 	if (length <= 125)
 	{
-		header += static_cast<unsigned char>(0x8 | 0x1 & 0x0f);
+		header += magicNumber;
 		header += static_cast<unsigned char>(length);
 	}
 	else if (length > 125 && length < 25536)
 	{
-		header += static_cast<unsigned char>(0x8 | 0x1 & 0x0f);
+		header += magicNumber;
 		header += static_cast<unsigned char>(126);
 		header += static_cast<unsigned short>(length);
 	}
 	else if (length >= 65536)
 	{
-		header += static_cast<unsigned char>(0x8 | 0x1 & 0x0f);
+		header += magicNumber;
 		header += static_cast<unsigned char>(127);
 		header += static_cast<unsigned long>(length);
 	}

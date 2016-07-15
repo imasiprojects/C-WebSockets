@@ -40,6 +40,7 @@ void testServer(){
 	server.setDataCallback("Prueba", [](WebSocketServer* srv, WebSocketConnection* conn, std::string key, std::string data)
 	{
 		std::cout << "Prueba: [" << key << "] = " << data << std::endl;
+		srv->sendPing();
 	});
 
     server.start(80);

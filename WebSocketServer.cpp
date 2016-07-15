@@ -80,6 +80,14 @@ void WebSocketServer::sendBroadcast(std::string key, std::string data){
     }
 }
 
+void WebSocketServer::sendPing()
+{
+	for (WebSocketConnection* conn : _connections)
+	{
+		conn->ping();
+	}
+}
+
 WSNewClientCallback WebSocketServer::getNewClientCallback() const{
     return _onNewClient;
 }
@@ -93,9 +101,8 @@ const std::map<std::string, WSImasiCallback>& WebSocketServer::getMessageCallbac
 }
 
 WebSocketConnection::WebSocketConnection(WebSocketServer* server, Connection conn)
-:_thread(nullptr),_server(server),_handShakeDone(false),_isRunning(false),_mustStop(false){
+:_thread(nullptr),_server(server),_handShakeDone(false),_isRunning(false),_mustStop(false),_lastPingRequestTime(clock()){
     _conn.connect(conn.sock, conn.ip, _server->getPort());
-    _conn.setBlocking(true);
     _thread = new std::thread(&WebSocketConnection::threadFunction, this);
 }
 
@@ -127,8 +134,10 @@ bool WebSocketConnection::isRunning() const{
     return _isRunning;
 }
 
-void WebSocketConnection::pong(std::string data){
-    _conn.send(WebSocket::mask(data, 0xA));
+bool sleep()
+{
+	std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	return false;
 }
 
 void WebSocketConnection::threadFunction()
@@ -145,9 +154,14 @@ void WebSocketConnection::threadFunction()
 		{
 			do
 			{
+				if (_mustStop)
+				{
+					this->_isRunning = false;
+					return;
+				}
 				buffer += this->_conn.recv(2 - buffer.size());
 			}
-			while (buffer.size() < 2);
+			while (buffer.size() < 2 || sleep());
 
 			bool fin = buffer[0] & 0x80;
 			char opCode = buffer[0] & 0xF;
@@ -157,18 +171,28 @@ void WebSocketConnection::threadFunction()
 			{
 				do
 				{
+					if (_mustStop)
+					{
+						this->_isRunning = false;
+						return;
+					}
 					buffer += this->_conn.recv(4 - buffer.size());
 				}
-				while (buffer.size() < 4);
+				while (buffer.size() < 4 || sleep());
 				packetSize = *(short*)&buffer[2];
 			}
 			else if (packetSize == 127)
 			{
 				do
 				{
+					if (_mustStop)
+					{
+						this->_isRunning = false;
+						return;
+					}
 					buffer += this->_conn.recv(10 - buffer.size());
 				}
-				while (buffer.size() < 10);
+				while (buffer.size() < 10 || sleep());
 				packetSize = *(long long*)&buffer[2];
 			}
 
@@ -177,17 +201,27 @@ void WebSocketConnection::threadFunction()
 			{
 				do
 				{
+					if (_mustStop)
+					{
+						this->_isRunning = false;
+						return;
+					}
 					mask += this->_conn.recv(4 - mask.size());
 				}
-				while (mask.size() < 4);
+				while (mask.size() < 4 || sleep());
 			}
 
 			buffer.clear();
 			do
 			{
+				if (_mustStop)
+				{
+					this->_isRunning = false;
+					return;
+				}
 				buffer += this->_conn.recv(packetSize - buffer.size());
 			}
-			while (buffer.size() < packetSize);
+			while (buffer.size() < packetSize || sleep());
 
 			std::string data = hasMask ? WebSocket::unmask(mask, buffer) : buffer;
 
@@ -252,9 +286,14 @@ void WebSocketConnection::threadFunction()
 		{
 			do
 			{
+				if (_mustStop)
+				{
+					this->_isRunning = false;
+					return;
+				}
 				buffer += this->_conn.recv();
 			}
-			while (buffer.rfind("\r\n\r\n") == std::string::npos);
+			while (buffer.rfind("\r\n\r\n") == std::string::npos || sleep());
 			_handShakeDone = performHandShake(buffer);
 			if(_handShakeDone){
                 WSNewClientCallback temp = _server->getNewClientCallback();
@@ -283,5 +322,14 @@ bool WebSocketConnection::performHandShake(std::string buffer)
 
 void WebSocketConnection::ping()
 {
-	this->_conn.send(WebSocket::mask("Imasi Projects Te Pingea", 0x9));
+	_lastPingRequest = "Imasi Projects Te Pingea"; // TODO: algo random here
+	this->_conn.send(WebSocket::mask(_lastPingRequest, 0x9));
+}
+
+void WebSocketConnection::pong(std::string data)
+{
+	if (data == _lastPingRequest)
+	{
+		_lastPingRequestTime = clock();
+	}
 }

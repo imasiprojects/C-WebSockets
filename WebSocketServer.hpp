@@ -20,9 +20,12 @@ class WebSocketConnection{
     WebSocketServer* _server;
     TCPClient _conn;
 
-bool _handShakeDone;
+	bool _handShakeDone;
     bool _isRunning;
     bool _mustStop;
+
+	std::string _lastPingRequest;
+	clock_t _lastPingRequestTime;
 
     void threadFunction();
     bool performHandShake(std::string buffer);
@@ -76,6 +79,7 @@ public:
     bool setUnknownMessageCallback(WSImasiCallback callback);
 
     void sendBroadcast(std::string key, std::string data);
+	void sendPing();
 
     unsigned short getPort() const;
 

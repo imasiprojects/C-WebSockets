@@ -114,7 +114,7 @@ std::string mask(std::string text)
 	{
 		header += static_cast<unsigned char>(0x8 | 0x1 & 0x0f);
 		header += static_cast<unsigned char>(127);
-		header += static_cast<unsigned short>(length);
+		header += static_cast<unsigned long>(length);
 	}
 
 	return header + text;

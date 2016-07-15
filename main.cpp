@@ -46,8 +46,9 @@ int main(int argc, char** argv)
 
 void server()
 {
+	int serverPort = 80;
 	TCPRawServer* server = new TCPRawServer();
-	if (!server->start(80))
+	if (!server->start(serverPort))
 	{
 		std::cout << "Error" << std::endl;
 		return;
@@ -59,7 +60,7 @@ void server()
 	{
 		Connection client1 = server->newClient();
 		TCPClient* client = new TCPClient();
-		client->connect(client1.sock, client1.ip, 80);
+		client->connect(client1.sock, client1.ip, serverPort);
 		std::cout << "Client connected!" << std::endl;
 
 		bool handShakeDone = false;

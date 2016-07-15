@@ -106,6 +106,10 @@ bool WebSocketServer::WebSocketConnection::isRunning() const{
     return _isRunning;
 }
 
+void WebSocketServer::WebSocketConnection::pong(std::string data){
+    _conn.send(WebSocket::mask(data, 0xA));
+}
+
 void WebSocketServer::WebSocketConnection::threadFunction()
 {
 	// Handshake + Loop (leer mensajes)

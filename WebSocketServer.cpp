@@ -32,6 +32,10 @@ void WebSocketServer::close(){
     _server.finish();
 }
 
+unsigned short WebSocketServer::getPort() const{
+    return _server.getPort();
+}
+
 bool WebSocketServer::isRunning() const{
     return _server.isOn();
 }
@@ -76,41 +80,61 @@ void WebSocketServer::sendBroadcast(std::string key, std::string data){
     }
 }
 
-WebSocketServer::WebSocketConnection::WebSocketConnection(WebSocketServer* server, Connection conn)
+WSNewClientCallback WebSocketServer::getNewClientCallback() const{
+    return _onNewClient;
+}
+
+WSImasiCallback WebSocketServer::getUnknownDataCallback() const{
+    return _onUnknownMessage;
+}
+
+std::map<std::string, WSImasiCallback> WebSocketServer::getDataCallbacks() const{
+    return _messageCallbacks;
+}
+
+
+
+
+WebSocketConnection::WebSocketConnection(WebSocketServer* server, Connection conn)
 :_thread(nullptr),_server(server),_handShakeDone(false),_isRunning(false),_mustStop(false){
-    _conn.connect(conn.sock, conn.ip, this->_server->_server.getPort());
+    _conn.connect(conn.sock, conn.ip, _server->getPort());
+    _conn.setBlocking(true);
     _thread = new std::thread(&WebSocketConnection::threadFunction, this);
 }
 
-WebSocketServer::WebSocketConnection::~WebSocketConnection(){
+WebSocketConnection::~WebSocketConnection(){
     stopAndWait();
 }
 
-void WebSocketServer::WebSocketConnection::send(std::string key, std::string data){
+std::string WebSocketConnection::getIp() const{
+    return _conn.getIp();
+}
+
+void WebSocketConnection::send(std::string key, std::string data){
 
 	this->_conn.send(WebSocket::mask((char)key.size() + key + data));
 
 }
 
-void WebSocketServer::WebSocketConnection::stop(){
+void WebSocketConnection::stop(){
     _mustStop = true;
 }
 
-void WebSocketServer::WebSocketConnection::stopAndWait(){
+void WebSocketConnection::stopAndWait(){
     stop();
     if(_isRunning && _thread!=nullptr && _thread->joinable())
         _thread->join();
 }
 
-bool WebSocketServer::WebSocketConnection::isRunning() const{
+bool WebSocketConnection::isRunning() const{
     return _isRunning;
 }
 
-void WebSocketServer::WebSocketConnection::pong(std::string data){
+void WebSocketConnection::pong(std::string data){
     _conn.send(WebSocket::mask(data, 0xA));
 }
 
-void WebSocketServer::WebSocketConnection::threadFunction()
+void WebSocketConnection::threadFunction()
 {
 	// Handshake + Loop (leer mensajes)
 	this->_isRunning = true;
@@ -222,18 +246,22 @@ void WebSocketServer::WebSocketConnection::threadFunction()
 			}
 			while (buffer.rfind("\r\n\r\n") == std::string::npos);
 			_handShakeDone = performHandShake(buffer);
+			if(_handShakeDone){
+                WSNewClientCallback temp = _server->getNewClientCallback();
+                if(temp != nullptr)
+                    temp(_server, this);
+			}
 		}
 	}
 
 	this->_isRunning = false;
 }
 
-bool WebSocketServer::WebSocketConnection::performHandShake(std::string buffer)
+bool WebSocketConnection::performHandShake(std::string buffer)
 {
 	std::string websocketKey = HttpHelper::getHeaderValue(buffer, "Sec-WebSocket-Key");
 	if (websocketKey.size() > 0)
 	{
-		std::cout << "Handshake Key: " << websocketKey << std::endl;
 		std::string sha1Key = sha1UnsignedChar(websocketKey + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11");
 		std::string finalKey = Base64Helper::encode(sha1Key.c_str());
 
@@ -243,7 +271,7 @@ bool WebSocketServer::WebSocketConnection::performHandShake(std::string buffer)
 	return false;
 }
 
-void WebSocketServer::WebSocketConnection::ping()
+void WebSocketConnection::ping()
 {
 	this->_conn.send(WebSocket::mask("Imasi Projects Te Pingea", 0x9));
 }

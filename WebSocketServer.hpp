@@ -13,44 +13,45 @@ class WebSocketConnection;
 typedef void(*WSNewClientCallback)(WebSocketServer* srv, WebSocketConnection* conn);
 typedef void(*WSImasiCallback)(WebSocketServer* srv, std::string key, std::string data);
 
+
+class WebSocketConnection{
+    std::thread* _thread;
+
+    WebSocketServer* _server;
+    TCPClient _conn;
+
+bool _handShakeDone;
+    bool _isRunning;
+    bool _mustStop;
+
+    void threadFunction();
+    bool performHandShake(std::string buffer);
+
+public:
+    WebSocketConnection(WebSocketServer* server, Connection conn);
+    WebSocketConnection(const WebSocketConnection&) = delete;
+    ~WebSocketConnection();
+
+    std::string getIp() const;
+
+    void send(std::string key, std::string data);
+
+    void ping();
+    void pong(std::string data);
+
+    void stop();
+    void stopAndWait();
+
+    bool isRunning() const;
+};
+
 class WebSocketServer {
-
-    class WebSocketConnection{
-        std::thread* _thread;
-
-        WebSocketServer* _server;
-        TCPClient _conn;
-
-	bool _handShakeDone;
-        bool _isRunning;
-        bool _mustStop;
-
-        void threadFunction();
-		bool performHandShake(std::string buffer);
-
-    public:
-        WebSocketConnection(WebSocketServer* server, Connection conn);
-        WebSocketConnection(const WebSocketConnection&) = delete;
-        ~WebSocketConnection();
-
-        void send(std::string key, std::string data);
-
-		void ping();
-		void pong(std::string data);
-
-        void stop();
-        void stopAndWait();
-
-        bool isRunning() const;
-    };
-
 
     TCPRawServer _server;
 
     std::set<WebSocketConnection*> _connections;
 
 protected:
-    /// Native
     WSNewClientCallback _onNewClient;
     WSImasiCallback _onUnknownMessage;
 
@@ -75,4 +76,10 @@ public:
     bool setUnknownDataCallback(WSImasiCallback callback);
 
     void sendBroadcast(std::string key, std::string data);
+
+    unsigned short getPort() const;
+
+    WSNewClientCallback getNewClientCallback() const;
+    WSImasiCallback getUnknownDataCallback() const;
+    std::map<std::string, WSImasiCallback> getDataCallbacks() const;
 };

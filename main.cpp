@@ -9,17 +9,33 @@
 #include "Sha1.hpp"
 #include "Base64Helper.hpp"
 #include "WebSocket.hpp"
+#include "WebSocketServer.hpp"
 
+void testServer();
 void server();
 
 int main(int argc, char** argv)
 {
-	server();
+	testServer();
 
 	std::cout << "Finished" << std::endl;
 	std::cin.get();
 
 	return 0;
+}
+
+void testServer(){
+    WebSocketServer server;
+    server.setNewClientCallback([](WebSocketServer* srv, WebSocketConnection* conn){
+        std::cout << "New client entered with IP: " << conn->getIp() << std::endl;
+        conn->send("KEY", "holas");
+        conn->send("asd", "adios");
+    });
+    server.start(80);
+    std::cout << "Server started at port 80" << std::endl;
+    while(true){
+        server.newClient();
+    }
 }
 
 void server()

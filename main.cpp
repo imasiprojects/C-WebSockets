@@ -73,7 +73,7 @@ void server()
 				if (handShakeDone)
 				{
 					std::cout << "Unmasked >> " << unmask(buffer) << std::endl;
-					client->send(mask("MASKEEED MESSAGE!"));
+					client->send(mask("\x03KEYMESSAGE"));
 				}
 				else
 				{

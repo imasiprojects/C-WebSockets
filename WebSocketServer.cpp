@@ -79,7 +79,7 @@ void WebSocketServer::sendBroadcast(std::string key, std::string data){
 WebSocketServer::WebSocketConnection::WebSocketConnection(WebSocketServer* server, Connection conn)
 :_thread(nullptr),_server(server),_handShakeDone(false),_isRunning(false),_mustStop(false){
     _conn.connect(conn.sock, conn.ip, this->_server->_server.getPort());
-    _thread = new std::thread(&threadFunction, this);
+    _thread = new std::thread(&WebSocketConnection::threadFunction, this);
 }
 
 WebSocketServer::WebSocketConnection::~WebSocketConnection(){
@@ -87,7 +87,7 @@ WebSocketServer::WebSocketConnection::~WebSocketConnection(){
 }
 
 void WebSocketServer::WebSocketConnection::send(std::string key, std::string data){
-    #error TODO
+    //#error TODO
 }
 
 void WebSocketServer::WebSocketConnection::stop(){
@@ -109,17 +109,64 @@ void WebSocketServer::WebSocketConnection::threadFunction()
 	// Handshake + Loop (leer mensajes)
 	while (!this->_mustStop && this->_conn.isConnected())
 	{
-		std::string buffer = this->_conn.recv();
-		if (buffer.size() > 0)
+		std::string buffer;
+		if (_handShakeDone)
 		{
-			if (_handShakeDone)
+			do
 			{
-				std::cout << "Unmasked >> " << WebSocket::unmask(buffer) << std::endl;
+				buffer += this->_conn.recv(2 - buffer.size());
+			}
+			while (buffer.size() < 2);
+
+			long packetSize;
+			if (buffer[1] < 126)
+			{
+				packetSize = buffer[1];
+			}
+			else if (buffer[1] == 126)
+			{
+				do
+				{
+					buffer += this->_conn.recv(4 - buffer.size());
+				}
+				while (buffer.size() < 4);
+				packetSize = *(short*)&buffer[2];
 			}
 			else
 			{
-				_handShakeDone = performHandShake(buffer);
+				do
+				{
+					buffer += this->_conn.recv(10 - buffer.size());
+				}
+				while (buffer.size() < 10);
+				packetSize = *(long long*)&buffer[2];
 			}
+			buffer.clear();
+			do
+			{
+				buffer += this->_conn.recv(4 - buffer.size());
+			}
+			while (buffer.size() < 4);
+
+			std::string mask = buffer;
+			buffer.clear();
+			do
+			{
+				buffer += this->_conn.recv(packetSize - buffer.size());
+			}
+			while (buffer.size() < packetSize);
+
+			std::string data = WebSocket::unmask(buffer);
+			std::cout << data << std::endl;
+		}
+		else
+		{
+			do
+			{
+				buffer += this->_conn.recv();
+			}
+			while (buffer.rfind("\r\n\r\n") == std::string::npos);
+			_handShakeDone = performHandShake(buffer);
 		}
 	}
 }

@@ -2,47 +2,26 @@
 #pragma comment(lib, "wsock32.lib")
 
 #include <iostream>
-#include <thread>
+#include <sstream>
+
 #include "Sockets.hpp"
 #include "HttpHelper.hpp"
 #include "Sha1.hpp"
 #include "Base64Helper.hpp"
-#include <sstream>
 
-//void client();
 void server();
 std::string mask(std::string text);
 std::string unmask(std::string packet);
 
 int main(int argc, char** argv)
 {
-	/*std::thread tServer(server);
-	tServer.join();*/
-
 	server();
-	
+
 	std::cout << "Finished" << std::endl;
 	std::cin.get();
 
 	return 0;
 }
-
-/*void client()
-{
-	TCPClient* client = new TCPClient();
-	client->connect("127.0.0.1", 66453);
-	client->setBlocking(true);
-
-	client->send("Hola");
-
-	while (true)
-	{
-		string buffer = client->recv();
-		std::cout << "Client >> " << buffer << std::endl;
-	}
-
-	delete client;
-}*/
 
 void server()
 {
@@ -65,7 +44,7 @@ void server()
 		std::cout << "Client connected!" << std::endl;
 
 		bool handShakeDone = false;
-		while (client->isConnected()) 
+		while (client->isConnected())
 		{
 			std::string buffer = client->recv();
 			if (buffer.size() > 0)

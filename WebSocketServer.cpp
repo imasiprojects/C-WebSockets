@@ -71,3 +71,27 @@ bool WebSocketServer::sendBroadcast(std::string key, std::string data){
         conn->send(key, data);
     }
 }
+
+WebSocketServer::WebSocketConnection::WebSocketConnection(WebSocketServer* server, Connection conn){
+
+}
+
+WebSocketServer::WebSocketConnection::~WebSocketConnection(){
+
+}
+
+void WebSocketServer::WebSocketConnection::send(std::string key, std::string data){
+
+}
+
+void WebSocketServer::WebSocketConnection::stop(){
+
+}
+
+void WebSocketServer::WebSocketConnection::stopAndWait(){
+
+}
+
+bool WebSocketServer::WebSocketConnection::isRunning() const{
+
+}

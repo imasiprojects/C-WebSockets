@@ -14,8 +14,10 @@ void server();
 
 int main(int argc, char** argv)
 {
-	std::thread tServer(server);
-	tServer.join();
+	/*std::thread tServer(server);
+	tServer.join();*/
+
+	server();
 	
 	std::cout << "Finished" << std::endl;
 	std::cin.get();
@@ -62,6 +64,10 @@ void server()
 		while (client->isConnected()) 
 		{
 			std::string buffer = client->recv();
+			if (a && buffer.size() > 1)
+			{
+				std::cout << buffer << std::endl;
+			}
 			if (!a) {
 				a = true;
 				std::string websocketKey = HttpHelper::getHeaderValue(buffer, "Sec-WebSocket-Key");

@@ -105,7 +105,7 @@ std::string mask(std::string text)
 		header += magicNumber;
 		header += static_cast<unsigned char>(length);
 	}
-	else if (length > 125 && length < 25536)
+	else if (length > 125 && length < 65536)
 	{
 		header += magicNumber;
 		header += static_cast<unsigned char>(126);

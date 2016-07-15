@@ -87,7 +87,9 @@ WebSocketServer::WebSocketConnection::~WebSocketConnection(){
 }
 
 void WebSocketServer::WebSocketConnection::send(std::string key, std::string data){
-    //#error TODO
+
+	this->_conn.send(WebSocket::mask((char)key.size() + key + data));
+
 }
 
 void WebSocketServer::WebSocketConnection::stop(){
@@ -107,6 +109,8 @@ bool WebSocketServer::WebSocketConnection::isRunning() const{
 void WebSocketServer::WebSocketConnection::threadFunction()
 {
 	// Handshake + Loop (leer mensajes)
+	this->_isRunning = true;
+
 	while (!this->_mustStop && this->_conn.isConnected())
 	{
 		std::string buffer;
@@ -170,7 +174,32 @@ void WebSocketServer::WebSocketConnection::threadFunction()
 					finBuffer.clear();
 				}
 
-				std::cout << data << std::endl;
+				switch (opCode)
+				{
+					case 0x8:
+					{
+						// Connection close
+						this->_conn.disconnect();
+						break;
+					}
+					case 0x9:
+					{
+						// Ping
+						pong();
+						break;
+					}
+					case 0xA:
+					{
+						// Pong
+						/// TODO: comprobar si es igual al ultimo PING, si lo es hay que reiniciar el contador y ya.
+						break;
+					}
+					default:
+					{
+						std::cout << data << std::endl;
+						break;
+					}
+				}
 			}
 			else
 			{
@@ -180,31 +209,6 @@ void WebSocketServer::WebSocketConnection::threadFunction()
 				}
 				finBuffer += data;
 			}
-
-			switch (opCode)
-			{
-				case 0x8:
-				{
-					// Connection close
-					break;
-				}
-				case 0x9:
-				{
-					// Ping
-					//pong();
-					break;
-				}
-				case 0xA:
-				{
-					// Pong
-					break;
-				}
-				default:
-				{
-					break;
-				}
-			}
-
 		}
 		else
 		{
@@ -216,6 +220,8 @@ void WebSocketServer::WebSocketConnection::threadFunction()
 			_handShakeDone = performHandShake(buffer);
 		}
 	}
+
+	this->_isRunning = false;
 }
 
 bool WebSocketServer::WebSocketConnection::performHandShake(std::string buffer)
@@ -231,4 +237,9 @@ bool WebSocketServer::WebSocketConnection::performHandShake(std::string buffer)
 		return true;
 	}
 	return false;
+}
+
+void WebSocketServer::WebSocketConnection::ping()
+{
+	this->_conn.send(WebSocket::mask("Imasi Projects Te Pingea", 0x9));
 }

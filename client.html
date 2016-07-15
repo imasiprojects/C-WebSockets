@@ -13,8 +13,8 @@
                {
 				  alert("Connection successful");
 				  
+				  alert("Sending message...");
                   ws.send("Message to send");
-                  alert("Message is sent...");
                };
 				
                ws.onmessage = function (evt) 

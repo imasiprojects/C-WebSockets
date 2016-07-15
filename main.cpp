@@ -61,6 +61,7 @@ void server()
 		Connection client1 = server->newClient();
 		TCPClient* client = new TCPClient();
 		client->connect(client1.sock, client1.ip, serverPort);
+		client->setBlocking(true);
 		std::cout << "Client connected!" << std::endl;
 
 		bool handShakeDone = false;

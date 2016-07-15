@@ -21,6 +21,7 @@ class WebSocketServer {
         WebSocketServer* _server;
         TCPClient _conn;
 
+        bool _isRunning;
         bool _mustStop;
 
         void threadFunction();
@@ -68,6 +69,6 @@ public:
     bool setDataCallback(std::string key, WSImasiCallback callback);
     bool setUnknownDataCallback(WSImasiCallback callback);
 
-    bool sendBroadcast(std::string key, std::string data);
+    void sendBroadcast(std::string key, std::string data);
 
 };

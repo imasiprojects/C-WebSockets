@@ -29,10 +29,18 @@ bool WebSocketServer::newClient(){
     if(conn.sock == SOCKET_ERROR)
         return false;
 
-    _clientThreads.push_back(
-        new std::thread(clientThreadFunction,
-                   std::ref(*this),
-                   conn)
+    #error Mutex on _clienThreads
+    _clientThreads.insert(
+        new std::thread(
+            clientThreadFunction,
+            std::ref(*this),
+            conn
+        )
     );
     return true;
+}
+
+void clientThreadFunction(WebSocketServer& srv, Connection conn){
+
+    #error Delete his own thread
 }

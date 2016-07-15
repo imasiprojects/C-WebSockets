@@ -98,7 +98,7 @@ void server()
 
 std::string mask(std::string text)
 {
-	unsigned char magicNumber = 0x80 | 0x1 & 0x0f;
+	unsigned char magicNumber = 0x81;
 	int length = text.size();
 
 	std::string header;

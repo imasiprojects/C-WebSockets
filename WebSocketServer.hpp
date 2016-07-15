@@ -2,7 +2,7 @@
 
 #include <string>
 #include <map>
-#include <list>
+#include <set>
 #include <thread>
 
 #include "sockets.hpp"
@@ -23,7 +23,7 @@ class WebSocketServer {
     std::map<std::string, WSImasiCallback> _clientMsg;
 
 
-    std::list<std::thread*> _clientThreads;
+    std::set<std::thread*> _clientThreads;
     static void clientThreadFunction(WebSocketServer& srv, Connection conn);
 
 public:
@@ -36,15 +36,15 @@ public:
     bool newClient();
 
     /// Native
-    void setDataCallback(WSCallback callback);
-    void setNewClientCallback(WSCallback callback);
+    bool setDataCallback(WSCallback callback);
+    bool setNewClientCallback(WSCallback callback);
 
     bool send(std::string data);
     bool sendBroadcast(std::string data);
 
 
     /// IMASI Protocol
-    void setDataCallback(std::string key, WSImasiCallback callback);
+    bool setDataCallback(std::string key, WSImasiCallback callback);
 
     bool send(std::string key, std::string data);
     bool sendBroadcast(std::string key, std::string data);

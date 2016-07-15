@@ -1,4 +1,8 @@
 #include "WebSocketServer.hpp"
+#include "HttpHelper.hpp"
+#include "Sha1.hpp"
+#include "Base64Helper.hpp"
+#include "WebSocket.hpp"
 
 WebSocketServer::WebSocketServer()
 :_onNewClient(nullptr),_onUnknownMessage(nullptr){
@@ -66,14 +70,14 @@ bool WebSocketServer::setUnknownDataCallback(WSImasiCallback callback){
     return true;
 }
 
-bool WebSocketServer::sendBroadcast(std::string key, std::string data){
+void WebSocketServer::sendBroadcast(std::string key, std::string data){
     for(WebSocketConnection* conn:_connections){
         conn->send(key, data);
     }
 }
 
 WebSocketServer::WebSocketConnection::WebSocketConnection(WebSocketServer* server, Connection conn){
-
+	_handShakeDone = false;
 }
 
 WebSocketServer::WebSocketConnection::~WebSocketConnection(){
@@ -94,4 +98,39 @@ void WebSocketServer::WebSocketConnection::stopAndWait(){
 
 bool WebSocketServer::WebSocketConnection::isRunning() const{
 
+}
+
+void WebSocketServer::WebSocketConnection::threadFunction()
+{
+	// Handshake + Loop (leer mensajes)
+	while (!this->_mustStop && this->_conn.isConnected())
+	{
+		std::string buffer = this->_conn.recv();
+		if (buffer.size() > 0)
+		{
+			if (_handShakeDone)
+			{
+				std::cout << "Unmasked >> " << WebSocket::unmask(buffer) << std::endl;
+			}
+			else
+			{
+				_handShakeDone = performHandShake(buffer);
+			}
+		}
+	}
+}
+
+bool WebSocketServer::WebSocketConnection::performHandShake(std::string buffer)
+{
+	std::string websocketKey = HttpHelper::getHeaderValue(buffer, "Sec-WebSocket-Key");
+	if (websocketKey.size() > 0)
+	{
+		std::cout << "Handshake Key: " << websocketKey << std::endl;
+		std::string sha1Key = sha1UnsignedChar(websocketKey + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11");
+		std::string finalKey = Base64Helper::encode(sha1Key.c_str());
+
+		this->_conn.send("HTTP/1.1 101 Web Socket Protocol Handshake\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Protocol: chat\r\nSec-WebSocket-Accept: " + finalKey + "\r\n\r\n");
+		return true;
+	}
+	return false;
 }

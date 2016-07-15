@@ -21,9 +21,11 @@ class WebSocketServer {
         WebSocketServer* _server;
         TCPClient _conn;
 
+		bool _handShakeDone;
         bool _mustStop;
 
         void threadFunction();
+		bool performHandShake(std::string buffer);
 
     public:
         WebSocketConnection(WebSocketServer* server, Connection conn);
@@ -68,6 +70,6 @@ public:
     bool setDataCallback(std::string key, WSImasiCallback callback);
     bool setUnknownDataCallback(WSImasiCallback callback);
 
-    bool sendBroadcast(std::string key, std::string data);
+    void sendBroadcast(std::string key, std::string data);
 
 };

@@ -35,6 +35,9 @@ class WebSocketServer {
 
         void send(std::string key, std::string data);
 
+		void ping();
+		void pong();
+
         void stop();
         void stopAndWait();
 
@@ -72,5 +75,4 @@ public:
     bool setUnknownDataCallback(WSImasiCallback callback);
 
     void sendBroadcast(std::string key, std::string data);
-
 };

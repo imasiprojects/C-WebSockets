@@ -45,6 +45,8 @@ void server()
 		std::cout << "Client connected!" << std::endl;
 
 		bool handShakeDone = false;
+		std::string finBuffer;
+		char finOpCode;
 		while (client->isConnected())
 		{
 			std::string buffer;
@@ -56,6 +58,8 @@ void server()
 				}
 				while (buffer.size() < 2);
 
+				bool fin = buffer[0] & 0x80;
+				char opCode = buffer[0] & 0xF;
 				bool hasMask = buffer[1] & 0x80;
 				long packetSize = buffer[1] & 127;
 				if (packetSize == 126)
@@ -95,7 +99,25 @@ void server()
 				while (buffer.size() < packetSize);
 
 				std::string data = hasMask ? WebSocket::unmask(mask, buffer) : buffer;
-				std::cout << data << std::endl;
+
+				if (fin)
+				{
+					if (opCode == 0x0)
+					{
+						data = finBuffer + data;
+						finBuffer.clear();
+					}
+
+					std::cout << data << std::endl;
+				}
+				else
+				{
+					if (opCode != 0x0)
+					{
+						finOpCode = opCode;
+					}
+					finBuffer += data;
+				}
 			}
 			else
 			{

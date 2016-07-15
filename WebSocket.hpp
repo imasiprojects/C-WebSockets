@@ -3,25 +3,22 @@
 
 namespace WebSocket
 {
-	static std::string mask(std::string text)
+	static std::string mask(std::string text, unsigned char opCode = 0x1)
 	{
 		int length = text.size();
+		std::string header = std::to_string(0x80 | opCode & 0x0f);
 
-		std::string header;
 		if (length <= 125)
 		{
-			header += 0x81;
 			header += static_cast<unsigned char>(length);
 		}
 		else if (length > 125 && length < 65536)
 		{
-			header += 0x81;
 			header += static_cast<unsigned char>(126);
 			header += static_cast<unsigned short>(length);
 		}
 		else if (length >= 65536)
 		{
-			header += 0x81;
 			header += static_cast<unsigned char>(127);
 			header += static_cast<unsigned long>(length);
 		}
@@ -41,7 +38,6 @@ namespace WebSocket
 
 	static std::string unmask(std::string packet)
 	{
-
 		// 0 3 M M M M D D D
 		// 0 126 X X M M M M D D D D D...126
 		// 0 127 X X X X X X X X M M M M D D D D D D D D...127

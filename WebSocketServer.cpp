@@ -110,6 +110,8 @@ void WebSocketServer::WebSocketConnection::threadFunction()
 	while (!this->_mustStop && this->_conn.isConnected())
 	{
 		std::string buffer;
+		std::string finBuffer;
+		char finOpCode;
 		if (_handShakeDone)
 		{
 			do
@@ -118,12 +120,11 @@ void WebSocketServer::WebSocketConnection::threadFunction()
 			}
 			while (buffer.size() < 2);
 
-			long packetSize;
-			if (buffer[1] < 126)
-			{
-				packetSize = buffer[1];
-			}
-			else if (buffer[1] == 126)
+			bool fin = buffer[0] & 0x80;
+			char opCode = buffer[0] & 0xF;
+			bool hasMask = buffer[1] & 0x80;
+			long packetSize = buffer[1] & 127;
+			if (packetSize == 126)
 			{
 				do
 				{
@@ -132,7 +133,7 @@ void WebSocketServer::WebSocketConnection::threadFunction()
 				while (buffer.size() < 4);
 				packetSize = *(short*)&buffer[2];
 			}
-			else
+			else if (packetSize == 127)
 			{
 				do
 				{
@@ -141,14 +142,17 @@ void WebSocketServer::WebSocketConnection::threadFunction()
 				while (buffer.size() < 10);
 				packetSize = *(long long*)&buffer[2];
 			}
-			buffer.clear();
-			do
-			{
-				buffer += this->_conn.recv(4 - buffer.size());
-			}
-			while (buffer.size() < 4);
 
-			std::string mask = buffer;
+			std::string mask;
+			if (hasMask)
+			{
+				do
+				{
+					mask += this->_conn.recv(4 - mask.size());
+				}
+				while (mask.size() < 4);
+			}
+
 			buffer.clear();
 			do
 			{
@@ -156,8 +160,51 @@ void WebSocketServer::WebSocketConnection::threadFunction()
 			}
 			while (buffer.size() < packetSize);
 
-			std::string data = WebSocket::unmask(buffer);
-			std::cout << data << std::endl;
+			std::string data = hasMask ? WebSocket::unmask(mask, buffer) : buffer;
+
+			if (fin)
+			{
+				if (opCode == 0x0)
+				{
+					data = finBuffer + data;
+					finBuffer.clear();
+				}
+
+				std::cout << data << std::endl;
+			}
+			else
+			{
+				if (opCode != 0x0)
+				{
+					finOpCode = opCode;
+				}
+				finBuffer += data;
+			}
+
+			switch (opCode)
+			{
+				case 0x8:
+				{
+					// Connection close
+					break;
+				}
+				case 0x9:
+				{
+					// Ping
+					pong();
+					break;
+				}
+				case 0xA:
+				{
+					// Pong
+					break;
+				}
+				default:
+				{
+					break;
+				}
+			}
+
 		}
 		else
 		{

@@ -73,7 +73,7 @@ void server()
 				if (handShakeDone)
 				{
 					std::cout << "Unmasked >> " << unmask(buffer) << std::endl;
-					client->send(mask("\x03KEYMESSAGE"));
+					client->send(mask("\x04LocoISC"));
 				}
 				else
 				{
@@ -86,6 +86,7 @@ void server()
 					handShakeDone = true;
 
 					std::cout << "HandShake done" << std::endl;
+					client->send(mask("\x03KEYMESSAGE"));
 				}
 			}
 		}

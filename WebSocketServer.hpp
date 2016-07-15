@@ -21,7 +21,8 @@ class WebSocketServer {
         WebSocketServer* _server;
         TCPClient _conn;
 
-		bool _handShakeDone;
+	bool _handShakeDone;
+        bool _isRunning;
         bool _mustStop;
 
         void threadFunction();

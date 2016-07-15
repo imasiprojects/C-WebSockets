@@ -76,28 +76,33 @@ void WebSocketServer::sendBroadcast(std::string key, std::string data){
     }
 }
 
-WebSocketServer::WebSocketConnection::WebSocketConnection(WebSocketServer* server, Connection conn){
+WebSocketServer::WebSocketConnection::WebSocketConnection(WebSocketServer* server, Connection conn)
+:_thread(nullptr),_server(server),_isRunning(false),_mustStop(false){
 	_handShakeDone = false;
+    _conn.connect(conn.sock, conn.ip, this->_server->_server.getPort());
+    _thread = new std::thread(&threadFunction, this);
 }
 
 WebSocketServer::WebSocketConnection::~WebSocketConnection(){
-
+    stopAndWait();
 }
 
 void WebSocketServer::WebSocketConnection::send(std::string key, std::string data){
-
+    #error TODO
 }
 
 void WebSocketServer::WebSocketConnection::stop(){
-
+    _mustStop = true;
 }
 
 void WebSocketServer::WebSocketConnection::stopAndWait(){
-
+    stop();
+    if(_isRunning && _thread!=nullptr && _thread->joinable())
+        _thread->join();
 }
 
 bool WebSocketServer::WebSocketConnection::isRunning() const{
-
+    return _isRunning;
 }
 
 void WebSocketServer::WebSocketConnection::threadFunction()

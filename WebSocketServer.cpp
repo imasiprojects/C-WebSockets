@@ -77,8 +77,7 @@ void WebSocketServer::sendBroadcast(std::string key, std::string data){
 }
 
 WebSocketServer::WebSocketConnection::WebSocketConnection(WebSocketServer* server, Connection conn)
-:_thread(nullptr),_server(server),_isRunning(false),_mustStop(false){
-	_handShakeDone = false;
+:_thread(nullptr),_server(server),_handShakeDone(false),_isRunning(false),_mustStop(false){
     _conn.connect(conn.sock, conn.ip, this->_server->_server.getPort());
     _thread = new std::thread(&threadFunction, this);
 }

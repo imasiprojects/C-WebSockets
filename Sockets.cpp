@@ -31,10 +31,15 @@ std::string recv(SOCKET s, size_t maxChars) {
 	char* buff = new char[maxChars];
 	int n = recv(s, buff, maxChars, 0);
 	if (n <= 0)
+	{
+		delete[] buff;
 		return "";
+	}
 	std::string t(n, 0);
 	for (int i = 0; i<n; i++)
 		t[i] = buff[i];
+
+	delete[] buff;
 	return t;
 }
 
@@ -151,13 +156,13 @@ std::string TCPClient::recv(int maxChars) {
 	int n = ::recv(_socket, buff, maxChars, 0);
 	if (n == 0) {
 		disconnect();
-		delete buff;
+		delete[] buff;
 		return "";
 	} else if (n<0) return "";
 	std::string t(n, 0);
 	for (int i = 0; i<n; i++)
 		t[i] = buff[i];
-	delete buff;
+	delete[] buff;
 	return t;
 }
 
@@ -243,13 +248,13 @@ std::string TCPServer::recv(size_t clientN, size_t maxChars) {
 	int n = ::recv(_clients[clientN].socket, buff, maxChars, 0);
 	if (n == 0) {
 		disconnectClient(clientN);
-		delete buff;
+		delete[] buff;
 		return "";
 	} else if (n<0) return "";
 	std::string t(n, 0);
 	for (int i = 0; i<n; i++)
 		t[i] = buff[i];
-	delete buff;
+	delete[] buff;
 	return t;
 }
 

@@ -11,7 +11,7 @@ class WebSocketServer;
 class WebSocketConnection;
 
 typedef void(*WSNewClientCallback)(WebSocketServer* srv, WebSocketConnection* conn);
-typedef void(*WSImasiCallback)(WebSocketServer* srv, std::string key, std::string data);
+typedef void(*WSImasiCallback)(WebSocketServer* srv, WebSocketConnection* conn, std::string key, std::string data);
 
 
 class WebSocketConnection{
@@ -73,13 +73,13 @@ public:
 
     /// IMASI Protocol
     bool setDataCallback(std::string key, WSImasiCallback callback);
-    bool setUnknownDataCallback(WSImasiCallback callback);
+    bool setUnknownMessageCallback(WSImasiCallback callback);
 
     void sendBroadcast(std::string key, std::string data);
 
     unsigned short getPort() const;
 
     WSNewClientCallback getNewClientCallback() const;
-    WSImasiCallback getUnknownDataCallback() const;
-    std::map<std::string, WSImasiCallback> getDataCallbacks() const;
+    WSImasiCallback getUnknownMessageCallback() const;
+    const std::map<std::string, WSImasiCallback>& getMessageCallbacks() const;
 };

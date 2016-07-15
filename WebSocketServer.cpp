@@ -67,7 +67,7 @@ bool WebSocketServer::setDataCallback(std::string key, WSImasiCallback callback)
     return true;
 }
 
-bool WebSocketServer::setUnknownDataCallback(WSImasiCallback callback){
+bool WebSocketServer::setUnknownMessageCallback(WSImasiCallback callback){
     if(isRunning())
         return false;
     _onUnknownMessage = callback;
@@ -84,16 +84,13 @@ WSNewClientCallback WebSocketServer::getNewClientCallback() const{
     return _onNewClient;
 }
 
-WSImasiCallback WebSocketServer::getUnknownDataCallback() const{
+WSImasiCallback WebSocketServer::getUnknownMessageCallback() const{
     return _onUnknownMessage;
 }
 
-std::map<std::string, WSImasiCallback> WebSocketServer::getDataCallbacks() const{
+const std::map<std::string, WSImasiCallback>& WebSocketServer::getMessageCallbacks() const {
     return _messageCallbacks;
 }
-
-
-
 
 WebSocketConnection::WebSocketConnection(WebSocketServer* server, Connection conn)
 :_thread(nullptr),_server(server),_handShakeDone(false),_isRunning(false),_mustStop(false){
@@ -220,11 +217,24 @@ void WebSocketConnection::threadFunction()
 					{
 						// Pong
 						/// TODO: comprobar si es igual al ultimo PING, si lo es hay que reiniciar el contador y ya.
+						std::cout << "PONG" << std::endl;
 						break;
 					}
 					default:
 					{
-						std::cout << data << std::endl;
+						std::string key = data.substr(1, data[0]);
+						std::string value = data.substr(data[0] + 1);
+
+						std::map<std::string, WSImasiCallback> dataCallBacks = this->_server->getMessageCallbacks();
+						if (dataCallBacks.find(key) != dataCallBacks.end())
+						{
+							dataCallBacks[key](this->_server, this, key, value);
+						}
+						else
+						{
+							WSImasiCallback uknownDataCallback = this->_server->getUnknownMessageCallback();
+							if (uknownDataCallback != nullptr) uknownDataCallback(this->_server, this, key, value);
+						}
 						break;
 					}
 				}

@@ -31,6 +31,17 @@ void testServer(){
         conn->send("KEY", "holas");
         conn->send("asd", "adios");
     });
+
+	server.setUnknownMessageCallback([](WebSocketServer* srv, WebSocketConnection* conn, std::string key, std::string data)
+	{
+		std::cout << "Uknown: [" << key << "] = " << data << std::endl;
+	});
+
+	server.setDataCallback("Prueba", [](WebSocketServer* srv, WebSocketConnection* conn, std::string key, std::string data)
+	{
+		std::cout << "Prueba: [" << key << "] = " << data << std::endl;
+	});
+
     server.start(80);
     std::cout << "Server started at port 80" << std::endl;
     while(true){

@@ -73,7 +73,7 @@ void server()
 				if (handShakeDone)
 				{
 					std::cout << "Unmasked >> " << unmask(buffer) << std::endl;
-					client->send(mask("\x03KEYMESSAGE"));
+					client->send(mask("\x04LocoISC"));
 				}
 				else
 				{
@@ -86,6 +86,7 @@ void server()
 					handShakeDone = true;
 
 					std::cout << "HandShake done" << std::endl;
+					client->send(mask("\x03KEYMESSAGE"));
 				}
 			}
 		}
@@ -98,24 +99,23 @@ void server()
 
 std::string mask(std::string text)
 {
-	unsigned char magicNumber = 0x81;
 	int length = text.size();
 
 	std::string header;
 	if (length <= 125)
 	{
-		header += magicNumber;
+		header += 0x81;
 		header += static_cast<unsigned char>(length);
 	}
 	else if (length > 125 && length < 65536)
 	{
-		header += magicNumber;
+		header += 0x81;
 		header += static_cast<unsigned char>(126);
 		header += static_cast<unsigned short>(length);
 	}
 	else if (length >= 65536)
 	{
-		header += magicNumber;
+		header += 0x81;
 		header += static_cast<unsigned char>(127);
 		header += static_cast<unsigned long>(length);
 	}
@@ -126,7 +126,6 @@ std::string mask(std::string text)
 std::string unmask(std::string packet)
 {
 	int packetSize = packet[1] & 127;
-
 	std::string mask, data;
 
 	switch (packetSize)

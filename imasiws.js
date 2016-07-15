@@ -5,15 +5,11 @@ var ImasiSoftware = ImasiSoftware || {};
 
 ImasiSoftware.WebSocketClient = function() {
 
-    var that = this;
-
-    // private
     this.webSocket = null;
+    this.eventList = new Array();
 
-    // public
     this.onConnect = function() {
         alert("Connected");
-        that.send("Key", "Meessssage");
     };
     this.onClose = function() {
         alert("Connection closed");
@@ -21,9 +17,7 @@ ImasiSoftware.WebSocketClient = function() {
     this.onError = function() {
         alert("Error");
     };
-    this.onMessage = function(key, value) {
-        alert("Message received: {" + key + "} " + value);
-    };
+    this.onMessage = function(key, value) {};
 
 };
 
@@ -38,11 +32,17 @@ ImasiSoftware.WebSocketClient.prototype.connect = function (host, port) {
         this.webSocket.onclose = this.onClose;
         this.webSocket.onerror = this.onError;
         this.webSocket.onmessage = function (ev) {
-
-            alert("FULL DATA: " + ev.data);
-
             var keySize = ev.data.charCodeAt(0) + 1;
-            that.onMessage(ev.data.substring(1, keySize), ev.data.substring(keySize));
+
+            var key = ev.data.substring(1, keySize);
+            var value = ev.data.substring(keySize);
+
+            var event = that.eventList[key] || null;
+            if (event !== null) {
+                event(value);
+            } else {
+                that.onMessage(key, value);
+            }
         };
 
     } else {
@@ -56,5 +56,17 @@ ImasiSoftware.WebSocketClient.prototype.connect = function (host, port) {
 ImasiSoftware.WebSocketClient.prototype.send = function(key, value) {
 
     this.webSocket.send(String.fromCharCode(key.length) + key + value);
+
+}
+
+ImasiSoftware.WebSocketClient.prototype.addEventListener = function(key, callback) {
+
+    this.eventList[key] = callback;
+
+}
+
+ImasiSoftware.WebSocketClient.prototype.removeEventListener = function(key) {
+
+    this.eventList[key] = null;
 
 }

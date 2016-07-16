@@ -70,4 +70,4 @@ namespace WebSocket
 
 		return unmask(mask, data);
 	}
-}
+};

@@ -1,9 +1,8 @@
 #include "WebSocketServer.hpp"
-#include "Http.hpp"
+#include "HttpHelper.hpp"
 #include "Sha1.hpp"
 #include "Base64.hpp"
 #include "WebSocket.hpp"
-#include <iostream>
 
 WebSocketServer::WebSocketServer()
 :_onNewClient(nullptr),_onUnknownMessage(nullptr){
@@ -44,8 +43,8 @@ bool WebSocketServer::isRunning() const{
 bool WebSocketServer::acceptNewClient(){
     if(!_server.isOn())
         return false;
-    Connection conn = _server.acceptNewClient();
-    if(conn.socket == SOCKET_ERROR)
+    Connection conn = _server.newClient();
+    if(conn.sock == SOCKET_ERROR)
         return false;
 
     _connections.insert(new WebSocketConnection(
@@ -103,7 +102,7 @@ const std::map<std::string, WSImasiCallback>& WebSocketServer::getMessageCallbac
 
 WebSocketConnection::WebSocketConnection(WebSocketServer* server, Connection conn)
 :_thread(nullptr),_server(server),_handShakeDone(false),_isRunning(false),_mustStop(false),_lastPingRequestTime(clock()){
-    _conn.connect(conn.socket, conn.ip, _server->getPort());
+    _conn.connect(conn.sock, conn.ip, _server->getPort());
     _thread = new std::thread(&WebSocketConnection::threadFunction, this);
 }
 
@@ -115,9 +114,10 @@ std::string WebSocketConnection::getIp() const{
     return _conn.getIp();
 }
 
-void WebSocketConnection::send(std::string key, std::string data)
-{
+void WebSocketConnection::send(std::string key, std::string data){
+
 	this->_conn.send(WebSocket::mask((char)key.size() + key + data));
+
 }
 
 void WebSocketConnection::stop(){
@@ -308,7 +308,7 @@ void WebSocketConnection::threadFunction()
 
 bool WebSocketConnection::performHandShake(std::string buffer)
 {
-	std::string websocketKey = Http::getHeaderValue(buffer, "Sec-WebSocket-Key");
+	std::string websocketKey = HttpHelper::getHeaderValue(buffer, "Sec-WebSocket-Key");
 	if (websocketKey.size() > 0)
 	{
 		std::string sha1Key = Sha1::sha1UnsignedChar(websocketKey + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11");

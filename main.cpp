@@ -28,7 +28,7 @@ void startServer()
 		server->sendPing();
 	});
 
-	if (server->start(8560))
+	if (server->start(80))
 	{
 		std::cout << "Server running at port 80" << std::endl;
 		while (server->isRunning())
@@ -70,9 +70,9 @@ void server()
 
 	while (true)
 	{
-		Connection client1 = server->acceptNewClient();
+		Connection client1 = server->newClient();
 		TCPClient* client = new TCPClient();
-		client->connect(client1.socket, client1.ip, serverPort);
+		client->connect(client1.sock, client1.ip, serverPort);
 		client->setBlocking(true);
 		std::cout << "Client connected!" << std::endl;
 

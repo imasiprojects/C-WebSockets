@@ -7,27 +7,105 @@
 #include <ws2tcpip.h>
 #include <thread>
 
+unsigned int resolveAddress(std::string addr) {
+	if (addr == "255.255.255.255")
+		return INADDR_BROADCAST;
+	unsigned int ip = 0;
+	if ((ip = inet_addr(addr.c_str())) != INADDR_NONE)
+		return ip;
+	addrinfo hints;
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_INET;
+	addrinfo* result = NULL;
+	if (getaddrinfo(addr.c_str(), NULL, &hints, &result) == 0)
+		if (result) {
+			ip = ((sockaddr_in*)result->ai_addr)->sin_addr.s_addr;
+			freeaddrinfo(result);
+			return ip;
+		}
+	return 0;
+}
+
+std::string recv(SOCKET s, size_t maxChars) {
+	if (!s == INVALID_SOCKET) return "";
+	char* buff = new char[maxChars];
+	int n = recv(s, buff, maxChars, 0);
+	if (n <= 0)
+	{
+		delete[] buff;
+		return "";
+	}
+	std::string t(n, 0);
+	for (int i = 0; i<n; i++)
+		t[i] = buff[i];
+
+	delete[] buff;
+	return t;
+}
+
+bool send(SOCKET s, std::string msg) {
+	if (s == INVALID_SOCKET) return false;
+	size_t sentBytes = 0;
+	while (sentBytes<msg.size()) {
+		size_t sentNow = send(s, msg.c_str() + sentBytes, msg.size() - sentBytes, 0);
+		if (sentNow == SOCKET_ERROR) return false;
+		sentBytes += sentNow;
+	}
+	return true;
+}
+
+void setBlocking(SOCKET sock, bool blocking) {
+	u_long block = blocking ? 0 : 1;
+	ioctlsocket(sock, FIONBIO, &block);
+}
+
+Connection getNewClient(unsigned short port) {
+	TCPRawServer server;
+	if (!server.start(port))
+		return Connection();
+	server.setBlocking(true);
+	return server.newClient();
+}
+
+std::string getIp(SOCKET s) {
+	sockaddr sa;
+	int n = sizeof(sa);
+	if (getpeername(s, &sa, &n) != SOCKET_ERROR) {
+		return sa.sa_data;
+	}
+	else
+	{
+		return "";
+	}
+}
+
+/**   TCPCLIENT   **/
+/*
+SOCKET _socket;
+string _ip;
+unsigned short _port;
+bool _connected;
+bool _blocking;
+*/
+
 TCPClient::TCPClient() :_socket(0), _port(0), _connected(0), _blocking(0) {}
 
-TCPClient::TCPClient(std::string ip, unsigned short port) : _socket(0), _port(0), _connected(0), _blocking(0)
-{
+TCPClient::TCPClient(std::string ip, unsigned short port) : _socket(0), _port(0), _connected(0), _blocking(0) {
 	connect(ip, port);
 }
 
-TCPClient::~TCPClient()
-{
+TCPClient::~TCPClient() {
 	disconnect();
 }
 
-bool TCPClient::connect(std::string ip, unsigned short port)
-{
+bool TCPClient::connect(std::string ip, unsigned short port) {
+
 	disconnect();
 
 	SOCKET sock = INVALID_SOCKET;
 	sockaddr_in sockInfo;
 
-	if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == INVALID_SOCKET)
-	{
+	if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == INVALID_SOCKET) {
 		return false;
 	}
 
@@ -35,8 +113,7 @@ bool TCPClient::connect(std::string ip, unsigned short port)
 	sockInfo.sin_addr.s_addr = resolveAddress(ip);
 	sockInfo.sin_port = htons(port);
 
-	if (::connect(sock, (SOCKADDR*)&sockInfo, sizeof(sockInfo)) == SOCKET_ERROR)
-	{
+	if (::connect(sock, (SOCKADDR*)&sockInfo, sizeof(sockInfo)) == SOCKET_ERROR) {
 		closesocket(sock);
 		return false;
 	}
@@ -51,8 +128,8 @@ bool TCPClient::connect(std::string ip, unsigned short port)
 	return true;
 }
 
-void TCPClient::connect(SOCKET sock, std::string ip, unsigned short port)
-{
+void TCPClient::connect(SOCKET sock, std::string ip, unsigned short port) {
+
 	disconnect();
 
 	_ip = ip;
@@ -63,10 +140,8 @@ void TCPClient::connect(SOCKET sock, std::string ip, unsigned short port)
 	_blocking = false;
 }
 
-void TCPClient::disconnect()
-{
+void TCPClient::disconnect() {
 	if (!_connected) return;
-
 	closesocket(_socket);
 	_ip.clear();
 	_port = 0;
@@ -75,230 +150,167 @@ void TCPClient::disconnect()
 	_blocking = false;
 }
 
-std::string TCPClient::recv(int maxChars)
-{
+std::string TCPClient::recv(int maxChars) {
 	if (!_connected) return "";
-
-	char* buffer = new char[maxChars];
-	int n = ::recv(_socket, buffer, maxChars, 0);
-	if (n == 0)
-	{
+	char* buff = new char[maxChars];
+	int n = ::recv(_socket, buff, maxChars, 0);
+	if (n == 0) {
 		disconnect();
-		delete[] buffer;
+		delete[] buff;
 		return "";
-	}
-	if (n < 0) return "";
-
-	std::string data(n, 0);
-	for (int i = 0; i < n; i++)
-	{
-		data[i] = buffer[i];
-	}
-	delete[] buffer;
-
-	return data;
+	} else if (n<0) return "";
+	std::string t(n, 0);
+	for (int i = 0; i<n; i++)
+		t[i] = buff[i];
+	delete[] buff;
+	return t;
 }
 
-bool TCPClient::send(const std::string& msg)
-{
+bool TCPClient::send(const std::string& msg) {
 	if (!_connected) return false;
-
-	int sendResult = send(_socket, msg);
-	if (sendResult == SOCKET_ERROR && WSAGetLastError() == WSAENOTCONN)
-	{
-		disconnect();
-	}
-	return sendResult;
+	int n = ::send(_socket, msg);
+	if (n == SOCKET_ERROR)
+		if (WSAGetLastError() == WSAENOTCONN)
+			disconnect();
+	return n;
 }
 
-bool TCPClient::send(SOCKET s, std::string msg)
-{
-	if (s == INVALID_SOCKET) return false;
-
-	size_t sentBytes = 0;
-	while (sentBytes < msg.size())
-	{
-		size_t sentNow = ::send(s, msg.c_str() + sentBytes, msg.size() - sentBytes, 0);
-		if (sentNow == SOCKET_ERROR) return false;
-		sentBytes += sentNow;
-	}
-	return true;
-}
-
-bool TCPClient::isConnected() const
-{
+bool TCPClient::isConnected()const {
 	return _connected;
 }
 
-std::string TCPClient::getIp() const
-{
+std::string TCPClient::getIp()const {
 	return _ip;
 }
 
-unsigned short TCPClient::getPort() const
-{
+unsigned short TCPClient::getPort()const {
 	return _port;
 }
 
-void TCPClient::setBlocking(bool blocking) const
-{
+void TCPClient::setBlocking(bool blocking) {
 	if (!_connected) return;
-	setBlocking(_socket, blocking);
+	::setBlocking(_socket, blocking);
 }
 
-void TCPClient::setBlocking(SOCKET sock, bool blocking)
-{
-	u_long block = blocking ? 0 : 1;
-	ioctlsocket(sock, FIONBIO, &block);
-}
-
-bool TCPClient::isBlocking() const
-{
+bool TCPClient::isBlocking()const {
 	return _blocking;
 }
 
-unsigned int TCPClient::resolveAddress(std::string addr)
-{
-	if (addr == "255.255.255.255")
-	{
-		return INADDR_BROADCAST;
-	}
 
-	unsigned int ip = 0;
-	if ((ip = inet_addr(addr.c_str())) != INADDR_NONE)
-	{
-		return ip;
-	}
 
-	addrinfo hints;
-	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_INET;
-	addrinfo* result = nullptr;
-	if (getaddrinfo(addr.c_str(), 0, &hints, &result) == 0)
-	{
-		if (result)
-		{
-			ip = ((sockaddr_in*)result->ai_addr)->sin_addr.s_addr;
-			freeaddrinfo(result);
-			return ip;
-		}
-	}
-
-	return 0;
-}
+/**   TCPServer   **/
+/*
+struct _client{
+SOCKET socket;
+string ip;
+bool blocking;
+vector<string> data;
+};
+SOCKET _listener;
+vector<_client> _clients;
+unsigned short _port;
+bool _on;
+*/
 
 TCPServer::TCPServer() :TCPRawServer() {}
 
 TCPServer::TCPServer(unsigned short port) : TCPRawServer(port) {}
 
-TCPServer::~TCPServer()
-{
+TCPServer::~TCPServer() {
 	finish();
 }
 
-bool TCPServer::newClient()
-{
+bool TCPServer::newClient() {
 	if (!isOn()) return false;
 
-	_client client;
-	Connection connection;
-	if ((connection = acceptNewClient()).socket == INVALID_SOCKET)
-	{
+	_client c;
+
+	Connection t;
+	if ((t = TCPRawServer::newClient()).sock == INVALID_SOCKET)
 		return false;
-	}
 
-	client.socket = connection.socket;
-	client.ip = connection.ip;
-	TCPClient::setBlocking(client.socket, false);
-	_clients.push_back(client);
-
+	c.socket = t.sock;
+	c.ip = t.ip;
+	::setBlocking(c.socket, false);
+	_clients.push_back(c);
 	return true;
 }
 
-void TCPServer::disconnectClient(size_t clientN)
-{
-	if (clientN < 0 || clientN >= _clients.size()) return;
-
+void TCPServer::disconnectClient(size_t clientN) {
+	if (clientN<0 || clientN >= _clients.size()) return;
 	closesocket(_clients[clientN].socket);
 	_clients.erase(_clients.begin() + clientN);
 }
 
-std::string TCPServer::recv(size_t clientN, size_t maxChars)
-{
+std::string TCPServer::recv(size_t clientN, size_t maxChars) {
 	if (clientN >= _clients.size()) return "";
-
-	char* buffer = new char[maxChars];
-	int n = ::recv(_clients[clientN].socket, buffer, maxChars, 0);
-	if (n == 0)
-	{
+	char* buff = new char[maxChars];
+	int n = ::recv(_clients[clientN].socket, buff, maxChars, 0);
+	if (n == 0) {
 		disconnectClient(clientN);
-		delete[] buffer;
+		delete[] buff;
 		return "";
-	}
-	if (n < 0) return "";
-
-	std::string data(n, 0);
-	for (int i = 0; i < n; i++)
-	{
-		data[i] = buffer[i];
-	}
-	delete[] buffer;
-
-	return data;
+	} else if (n<0) return "";
+	std::string t(n, 0);
+	for (int i = 0; i<n; i++)
+		t[i] = buff[i];
+	delete[] buff;
+	return t;
 }
 
-bool TCPServer::send(size_t clientN, std::string msg)
-{
-	if (clientN < 0 || clientN >= _clients.size()) return false;
-	return TCPClient::send(_clients[clientN].socket, msg);
+bool TCPServer::send(size_t clientN, std::string msg) {
+	if (clientN<0 || clientN >= _clients.size()) return false;
+	return ::send(_clients[clientN].socket, msg);
 }
 
-std::vector<std::string>* TCPServer::getData(size_t clientN)
-{
-	if (clientN < 0 || clientN >= _clients.size()) return nullptr; // Isc -> IvanCea : What?!
+std::vector<std::string>* TCPServer::getData(size_t clientN) {
+	if (clientN<0 || clientN >= _clients.size()) return 0;
 	return &_clients[clientN].data;
 }
 
-std::string TCPServer::getIp(size_t clientN) const
-{
-	if (clientN < 0 || clientN >= _clients.size()) return "";
+std::string TCPServer::getIp(size_t clientN)const {
+	if (clientN<0 || clientN >= _clients.size()) return "";
 	return _clients[clientN].ip;
 }
 
-void TCPServer::setBlocking(size_t clientN, bool blocking)
-{
-	if (clientN < 0 || clientN >= _clients.size()) return;
-	TCPClient::setBlocking(_clients[clientN].socket, blocking);
+void TCPServer::setBlocking(size_t clientN, bool blocking) {
+	if (clientN<0 || clientN >= _clients.size()) return;
+	::setBlocking(_clients[clientN].socket, blocking);
 }
 
-bool TCPServer::isBlocking(size_t clientN) const
-{
-	if (clientN < 0 || clientN >= _clients.size()) return false;
+bool TCPServer::isBlocking(size_t clientN)const {
+	if (clientN<0 || clientN >= _clients.size()) return false;
 	return _clients[clientN].blocking;
 }
 
-size_t TCPServer::getClientCount() const
-{
+size_t TCPServer::getClientCount()const {
 	return _clients.size();
 }
 
-TCPRawServer::TCPRawServer() :_listener(0), _port(0), _blocking(0), _on(0) {}
 
-TCPRawServer::TCPRawServer(unsigned short port) : _listener(0), _port(0), _on(0)
-{
+
+/**SOCKET _listener;
+
+unsigned short _port;
+
+bool _blocking;
+
+bool _on;**/
+
+TCPRawServer::TCPRawServer() :_listener(0), _port(0), _on(0) {}
+
+TCPRawServer::TCPRawServer(unsigned short port) : _listener(0), _port(0), _on(0) {
 	start(port);
 }
 
-TCPRawServer::~TCPRawServer()
-{
+TCPRawServer::~TCPRawServer() {
 	finish();
 }
 
-bool TCPRawServer::start(unsigned short port)
-{
+bool TCPRawServer::start(unsigned short port) {
 	finish();
 
-	addrinfo *result = nullptr, hints;
+	addrinfo *result = NULL, hints;
 
 	ZeroMemory(&hints, sizeof(hints));
 	hints.ai_family = AF_INET;
@@ -306,21 +318,17 @@ bool TCPRawServer::start(unsigned short port)
 	hints.ai_protocol = IPPROTO_TCP;
 	hints.ai_flags = AI_PASSIVE;
 
-	if (getaddrinfo(nullptr, std::to_string(port).c_str(), &hints, &result) != 0)
-	{
+	if (getaddrinfo(NULL, std::to_string(port).c_str(), &hints, &result) != 0)
 		return false;
-	}
 
 	SOCKET sock = INVALID_SOCKET;
 
-	if ((sock = socket(result->ai_family, result->ai_socktype, result->ai_protocol)) == INVALID_SOCKET)
-	{
+	if ((sock = socket(result->ai_family, result->ai_socktype, result->ai_protocol)) == INVALID_SOCKET) {
 		freeaddrinfo(result);
 		return false;
 	}
 
-	if (::bind(sock, result->ai_addr, result->ai_addrlen) == SOCKET_ERROR)
-	{
+	if (::bind(sock, result->ai_addr, result->ai_addrlen) == SOCKET_ERROR) {
 		freeaddrinfo(result);
 		closesocket(sock);
 		return false;
@@ -328,8 +336,7 @@ bool TCPRawServer::start(unsigned short port)
 
 	freeaddrinfo(result);
 
-	if (listen(sock, SOMAXCONN) == SOCKET_ERROR)
-	{
+	if (listen(sock, SOMAXCONN) == SOCKET_ERROR) {
 		closesocket(sock);
 		return false;
 	}
@@ -340,8 +347,7 @@ bool TCPRawServer::start(unsigned short port)
 	return true;
 }
 
-void TCPRawServer::finish()
-{
+void TCPRawServer::finish() {
 	if (!_on) return;
 
 	closesocket(_listener);
@@ -351,63 +357,63 @@ void TCPRawServer::finish()
 	_on = false;
 }
 
-Connection TCPRawServer::acceptNewClient() const
+Connection TCPRawServer::newClient() const
 {
-	Connection connection;
-	if (!_on) return connection;
+	Connection t;
+	if (!_on) return t;
 
 	SOCKADDR_IN clientInfo = {0};
 	int addrsize = sizeof(clientInfo);
-	if ((connection.socket = accept(_listener, (sockaddr*)&clientInfo, &addrsize)) == INVALID_SOCKET)
-	{
-		return connection;
-	}
+	if ((t.sock = accept(_listener, (sockaddr*)&clientInfo, &addrsize)) == INVALID_SOCKET)
+		return t;
 
-	connection.ip = inet_ntoa(clientInfo.sin_addr);
-	return connection;
+	t.ip = inet_ntoa(clientInfo.sin_addr);
+	return t;
 }
 
-bool TCPRawServer::acceptNewClient(TCPSocketCallback* callback, bool detach) const
+bool TCPRawServer::newClient(TCPSocketCallback* callback, bool detach) const
 {
-	Connection connection;
+	Connection t;
 	if (!_on) return false;
 
 	SOCKADDR_IN clientInfo = {0};
 	int addrsize = sizeof(clientInfo);
-	if ((connection.socket = accept(_listener, (sockaddr*)&clientInfo, &addrsize)) == INVALID_SOCKET)
-	{
+	if ((t.sock = accept(_listener, (sockaddr*)&clientInfo, &addrsize)) == INVALID_SOCKET)
 		return false;
-	}
 
-	connection.ip = inet_ntoa(clientInfo.sin_addr);
-	std::thread th(callback, connection);
+	t.ip = inet_ntoa(clientInfo.sin_addr);
+	std::thread th(callback, t);
 	if (detach)
-	{
 		th.detach();
-	}
-
 	return true;
 }
 
-bool TCPRawServer::isOn() const
-{
+bool TCPRawServer::isOn()const {
 	return _on;
 }
 
-unsigned short TCPRawServer::getPort() const
-{
+unsigned short TCPRawServer::getPort()const {
 	return _port;
 }
 
-void TCPRawServer::setBlocking(bool blocking)
-{
+void TCPRawServer::setBlocking(bool blocking) {
 	if (!_on) return;
-
-	TCPClient::setBlocking(_listener, blocking);
+	::setBlocking(_listener, blocking);
 	_blocking = blocking;
 }
 
-bool TCPRawServer::isBlocking() const
-{
+bool TCPRawServer::isBlocking()const {
 	return _blocking;
 }
+
+
+
+struct WSAInitializer {
+	WSAInitializer() {
+		WSAData wsa;
+		WSAStartup(MAKEWORD(2, 2), &wsa);
+	};
+	~WSAInitializer() {
+		WSACleanup();
+	}
+}WSAIni;

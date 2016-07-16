@@ -1,7 +1,7 @@
 #include "WebSocketServer.hpp"
 #include "HttpHelper.hpp"
 #include "Sha1.hpp"
-#include "Base64Helper.hpp"
+#include "Base64.hpp"
 #include "WebSocket.hpp"
 
 WebSocketServer::WebSocketServer()
@@ -312,7 +312,7 @@ bool WebSocketConnection::performHandShake(std::string buffer)
 	if (websocketKey.size() > 0)
 	{
 		std::string sha1Key = sha1UnsignedChar(websocketKey + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11");
-		std::string finalKey = Base64Helper::encode(sha1Key.c_str());
+		std::string finalKey = Base64::encode(sha1Key.c_str());
 
 		this->_conn.send("HTTP/1.1 101 Web Socket Protocol Handshake\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Protocol: chat\r\nSec-WebSocket-Accept: " + finalKey + "\r\n\r\n");
 		return true;

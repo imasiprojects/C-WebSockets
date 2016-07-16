@@ -40,7 +40,7 @@ bool WebSocketServer::isRunning() const{
     return _server.isOn();
 }
 
-bool WebSocketServer::newClient(){
+bool WebSocketServer::acceptNewClient(){
     if(!_server.isOn())
         return false;
     Connection conn = _server.newClient();

@@ -5,18 +5,49 @@
 #include <sstream>
 
 #include "Sockets.hpp"
-#include "HttpHelper.hpp"
-#include "Sha1.hpp"
-#include "Base64Helper.hpp"
-#include "WebSocket.hpp"
 #include "WebSocketServer.hpp"
 
-void testServer();
-void server();
+void startServer()
+{
+    WebSocketServer* server = new WebSocketServer();
+
+    server->setNewClientCallback([](WebSocketServer* server, WebSocketConnection* connection){
+        std::cout << "New client entered with IP: " << connection->getIp() << std::endl;
+		connection->send("KEY", "holas");
+		connection->send("asd", "adios");
+    });
+
+	server->setUnknownMessageCallback([](WebSocketServer* server, WebSocketConnection* connection, std::string key, std::string data)
+	{
+		std::cout << "Uknown: [" << key << "] = " << data << std::endl;
+	});
+
+	server->setDataCallback("Prueba", [](WebSocketServer* server, WebSocketConnection* connection, std::string key, std::string data)
+	{
+		std::cout << "Prueba: [" << key << "] = " << data << std::endl;
+		server->sendPing();
+	});
+
+	if (server->start(80))
+	{
+		std::cout << "Server running at port 80" << std::endl;
+		while (server->isRunning())
+		{
+			server->acceptNewClient();
+			std::this_thread::sleep_for(std::chrono::milliseconds(100));
+		}
+	}
+	else
+	{
+		std::cout << "Server cannot be started" << std::endl;
+	}
+
+	delete server;
+}
 
 int main(int argc, char** argv)
 {
-	testServer();
+	startServer();
 
 	std::cout << "Finished" << std::endl;
 	std::cin.get();
@@ -24,32 +55,7 @@ int main(int argc, char** argv)
 	return 0;
 }
 
-void testServer(){
-    WebSocketServer server;
-    server.setNewClientCallback([](WebSocketServer* srv, WebSocketConnection* conn){
-        std::cout << "New client entered with IP: " << conn->getIp() << std::endl;
-        conn->send("KEY", "holas");
-        conn->send("asd", "adios");
-    });
-
-	server.setUnknownMessageCallback([](WebSocketServer* srv, WebSocketConnection* conn, std::string key, std::string data)
-	{
-		std::cout << "Uknown: [" << key << "] = " << data << std::endl;
-	});
-
-	server.setDataCallback("Prueba", [](WebSocketServer* srv, WebSocketConnection* conn, std::string key, std::string data)
-	{
-		std::cout << "Prueba: [" << key << "] = " << data << std::endl;
-		srv->sendPing();
-	});
-
-    server.start(80);
-    std::cout << "Server started at port 80" << std::endl;
-    while(true){
-        server.newClient();
-    }
-}
-
+/*
 void server()
 {
 	int serverPort = 80;
@@ -180,3 +186,4 @@ void server()
 
 	delete server;
 }
+*/

@@ -70,7 +70,7 @@ public:
 
     bool isRunning() const;
 
-    bool newClient();
+    bool acceptNewClient();
 
     bool setNewClientCallback(WSNewClientCallback callback);
 

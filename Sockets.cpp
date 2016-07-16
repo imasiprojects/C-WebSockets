@@ -27,7 +27,7 @@ unsigned int resolveAddress(std::string addr) {
 }
 
 std::string recv(SOCKET s, size_t maxChars) {
-	if (!s == INVALID_SOCKET) return "";
+	if (s == INVALID_SOCKET) return "";
 	char* buff = new char[maxChars];
 	int n = recv(s, buff, maxChars, 0);
 	if (n <= 0)

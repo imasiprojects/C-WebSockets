@@ -28,7 +28,7 @@ void startServer()
 		server->sendPing();
 	});
 
-	if (server->start(80))
+	/*if (server->start(80))
 	{
 		std::cout << "Server running at port 80" << std::endl;
 		while (server->isRunning())
@@ -39,7 +39,11 @@ void startServer()
 	}
 	else
 	{
-		std::cout << "Server cannot be started" << std::endl;
+		std::cout << "Server couldn't be started" << std::endl;
+	}*/
+
+	if(!server->startAndWait(80)){
+		std::cout << "Server couldn't be started" << std::endl;
 	}
 
 	delete server;

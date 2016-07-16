@@ -52,6 +52,8 @@ class WebSocketServer {
 
     TCPRawServer _server;
 
+    bool _acceptNewClients;
+
     std::set<WebSocketConnection*> _connections;
 
 protected:
@@ -66,11 +68,13 @@ public:
     ~WebSocketServer();
 
     bool start(unsigned short port);
+    bool startAndWait(unsigned short port);
     void close();
 
     bool isRunning() const;
 
     bool acceptNewClient();
+    bool clearClosedConnections();
 
     bool setNewClientCallback(WSNewClientCallback callback);
 
@@ -82,6 +86,9 @@ public:
 	void sendPing();
 
     unsigned short getPort() const;
+
+    void setAcceptNewClients(bool acceptNewClients);
+    bool isAcceptingNewClients() const;
 
     WSNewClientCallback getNewClientCallback() const;
     WSImasiCallback getUnknownMessageCallback() const;

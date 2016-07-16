@@ -5,7 +5,7 @@
 #include "WebSocket.hpp"
 
 WebSocketServer::WebSocketServer()
-:_onNewClient(nullptr),_onUnknownMessage(nullptr){
+:_acceptNewClients(true),_onNewClient(nullptr),_onUnknownMessage(nullptr){
     _onNewClient = nullptr;
     _onUnknownMessage = nullptr;
 }
@@ -23,6 +23,25 @@ bool WebSocketServer::start(unsigned short port){
     return ok;
 }
 
+bool WebSocketServer::startAndWait(unsigned short port){
+    if(_server.isOn())
+        close();
+    bool ok = _server.start(port);
+    if(!ok)
+        return false;
+
+    _server.setBlocking(false);
+
+    while (isRunning()){
+        if(_acceptNewClients)
+            acceptNewClient();
+        clearClosedConnections();
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+
+    return true;
+}
+
 void WebSocketServer::close(){
     for(WebSocketConnection* wsc:_connections){
         wsc->stopAndWait();
@@ -34,6 +53,14 @@ void WebSocketServer::close(){
 
 unsigned short WebSocketServer::getPort() const{
     return _server.getPort();
+}
+
+void WebSocketServer::setAcceptNewClients(bool acceptNewClients){
+    _acceptNewClients = acceptNewClients;
+}
+
+bool WebSocketServer::isAcceptingNewClients() const{
+    return _acceptNewClients;
 }
 
 bool WebSocketServer::isRunning() const{
@@ -51,6 +78,16 @@ bool WebSocketServer::acceptNewClient(){
         this, conn
     ));
     return true;
+}
+
+bool WebSocketServer::clearClosedConnections(){
+    for(auto it=_connections.begin(); it!=_connections.end();){
+        if(!(*it)->isRunning()){
+            delete *it;
+            auto temp = it++;
+            _connections.erase(temp);
+        }else ++it;
+    }
 }
 
 bool WebSocketServer::setNewClientCallback(WSNewClientCallback callback){
@@ -101,13 +138,14 @@ const std::map<std::string, WSImasiCallback>& WebSocketServer::getMessageCallbac
 }
 
 WebSocketConnection::WebSocketConnection(WebSocketServer* server, Connection conn)
-:_thread(nullptr),_server(server),_handShakeDone(false),_isRunning(false),_mustStop(false),_lastPingRequestTime(clock()){
+:_thread(nullptr),_server(server),_handShakeDone(false),_isRunning(true),_mustStop(false),_lastPingRequestTime(clock()){
     _conn.connect(conn.sock, conn.ip, _server->getPort());
     _thread = new std::thread(&WebSocketConnection::threadFunction, this);
 }
 
 WebSocketConnection::~WebSocketConnection(){
     stopAndWait();
+    delete _thread;
 }
 
 std::string WebSocketConnection::getIp() const{
@@ -126,7 +164,7 @@ void WebSocketConnection::stop(){
 
 void WebSocketConnection::stopAndWait(){
     stop();
-    if(_isRunning && _thread!=nullptr && _thread->joinable())
+    if(_thread!=nullptr && _thread->joinable())
         _thread->join();
 }
 
@@ -134,17 +172,15 @@ bool WebSocketConnection::isRunning() const{
     return _isRunning;
 }
 
-bool sleep()
+bool sleep(unsigned int ms = 1)
 {
-	std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	std::this_thread::sleep_for(std::chrono::milliseconds(ms));
 	return false;
 }
 
 void WebSocketConnection::threadFunction()
 {
 	// Handshake + Loop (leer mensajes)
-	this->_isRunning = true;
-
 	while (!this->_mustStop && this->_conn.isConnected())
 	{
 		std::string buffer;

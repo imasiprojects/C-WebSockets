@@ -24,7 +24,7 @@ class TCPRawServer
 public:
 
 	TCPRawServer();
-	TCPRawServer(unsigned short port);
+	explicit TCPRawServer(unsigned short port);
 	~TCPRawServer();
 	bool start(unsigned short port);
 	void finish();
@@ -84,6 +84,10 @@ public:
 	bool isConnected() const;
 	std::string getIp() const;
 	unsigned short getPort()const;
-	void setBlocking(bool blocking);
+	void setBlocking(bool blocking) const;
 	bool isBlocking() const;
+
+	static bool send(SOCKET s, std::string msg);
+	static void setBlocking(SOCKET sock, bool blocking);
+	static unsigned int resolveAddress(std::string addr);
 };

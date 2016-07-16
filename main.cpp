@@ -28,7 +28,7 @@ void startServer()
 		server->sendPing();
 	});
 
-	if (server->start(80))
+	if (server->start(8560))
 	{
 		std::cout << "Server running at port 80" << std::endl;
 		while (server->isRunning())

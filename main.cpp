@@ -70,9 +70,9 @@ void server()
 
 	while (true)
 	{
-		Connection client1 = server->newClient();
+		Connection client1 = server->acceptNewClient();
 		TCPClient* client = new TCPClient();
-		client->connect(client1.sock, client1.ip, serverPort);
+		client->connect(client1.socket, client1.ip, serverPort);
 		client->setBlocking(true);
 		std::cout << "Client connected!" << std::endl;
 

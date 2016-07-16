@@ -4,44 +4,40 @@
 #include <vector>
 #include <winsock2.h>
 
-struct Connection {
-	SOCKET sock;
+struct Connection
+{
+	SOCKET socket;
 	std::string ip;
 
-	Connection() :sock(INVALID_SOCKET) {}
+	Connection() : socket(INVALID_SOCKET) {}
 };
 
-typedef void(TCPSocketCallback)(Connection c);
+class TCPRawServer
+{
+	typedef void(TCPSocketCallback)(Connection c);
 
-std::basic_string<char> recv(SOCKET s, size_t maxChars = 1024);
-
-bool send(SOCKET s, std::string msg);
-
-void setBlocking(SOCKET sock, bool blocking);
-
-Connection getNewClient(unsigned short port);
-
-class TCPRawServer {
 	SOCKET _listener;
 	unsigned short _port;
 	bool _blocking;
 	bool _on;
 
 public:
+
 	TCPRawServer();
 	TCPRawServer(unsigned short port);
 	~TCPRawServer();
 	bool start(unsigned short port);
 	void finish();
-	Connection newClient() const;
-	bool newClient(TCPSocketCallback* callback, bool detach = true) const;
-	bool isOn()const;
-	unsigned short getPort()const;
+	Connection acceptNewClient() const;
+	bool acceptNewClient(TCPSocketCallback* callback, bool detach = true) const;
+	bool isOn() const;
+	unsigned short getPort() const;
 	void setBlocking(bool blocking);
-	bool isBlocking()const;
+	bool isBlocking() const;
 };
 
-class TCPServer :public TCPRawServer {
+class TCPServer :public TCPRawServer
+{
 	struct _client {
 		SOCKET socket;
 		std::string ip;
@@ -50,26 +46,26 @@ class TCPServer :public TCPRawServer {
 
 		_client() :socket(INVALID_SOCKET), blocking(0) {}
 	};
-
 	std::vector<_client> _clients;
 
 public:
+
 	TCPServer();
-	TCPServer(unsigned short port);
+	explicit TCPServer(unsigned short port);
 	~TCPServer();
 	bool newClient();
 	void disconnectClient(size_t clientN);
 	std::string recv(size_t clientN, size_t maxChars = 1024);
 	bool send(size_t clientN, std::string msg);
 	std::vector<std::string>* getData(size_t clientN);
-	std::string getIp(size_t clientN)const;
+	std::string getIp(size_t clientN) const;
 	void setBlocking(size_t clientN, bool blocking);
-	bool isBlocking(size_t clientN)const;
-	size_t getClientCount()const;
-
+	bool isBlocking(size_t clientN) const;
+	size_t getClientCount() const;
 };
 
-class TCPClient {
+class TCPClient
+{
 	SOCKET _socket;
 	std::string _ip;
 	unsigned short _port;
@@ -85,9 +81,9 @@ public:
 	void disconnect();
 	std::string recv(int maxChars = 1024);
 	bool send(const std::string& msg);
-	bool isConnected()const;
-	std::string getIp()const;
+	bool isConnected() const;
+	std::string getIp() const;
 	unsigned short getPort()const;
 	void setBlocking(bool blocking);
-	bool isBlocking()const;
+	bool isBlocking() const;
 };

@@ -64,7 +64,7 @@ Connection getNewClient(unsigned short port) {
 	if (!server.start(port))
 		return Connection();
 	server.setBlocking(true);
-	return server.newClient();
+	return server.acceptNewClient();
 }
 
 std::string getIp(SOCKET s) {
@@ -226,10 +226,10 @@ bool TCPServer::newClient() {
 	_client c;
 
 	Connection t;
-	if ((t = TCPRawServer::newClient()).sock == INVALID_SOCKET)
+	if ((t = TCPRawServer::acceptNewClient()).socket == INVALID_SOCKET)
 		return false;
 
-	c.socket = t.sock;
+	c.socket = t.socket;
 	c.ip = t.ip;
 	::setBlocking(c.socket, false);
 	_clients.push_back(c);
@@ -310,7 +310,8 @@ TCPRawServer::~TCPRawServer() {
 bool TCPRawServer::start(unsigned short port) {
 	finish();
 
-	addrinfo *result = NULL, hints;
+	addrinfo* result = nullptr;
+	addrinfo hints;
 
 	ZeroMemory(&hints, sizeof(hints));
 	hints.ai_family = AF_INET;
@@ -357,28 +358,28 @@ void TCPRawServer::finish() {
 	_on = false;
 }
 
-Connection TCPRawServer::newClient() const
+Connection TCPRawServer::acceptNewClient() const
 {
 	Connection t;
 	if (!_on) return t;
 
 	SOCKADDR_IN clientInfo = {0};
 	int addrsize = sizeof(clientInfo);
-	if ((t.sock = accept(_listener, (sockaddr*)&clientInfo, &addrsize)) == INVALID_SOCKET)
+	if ((t.socket = accept(_listener, (sockaddr*)&clientInfo, &addrsize)) == INVALID_SOCKET)
 		return t;
 
 	t.ip = inet_ntoa(clientInfo.sin_addr);
 	return t;
 }
 
-bool TCPRawServer::newClient(TCPSocketCallback* callback, bool detach) const
+bool TCPRawServer::acceptNewClient(TCPSocketCallback* callback, bool detach) const
 {
 	Connection t;
 	if (!_on) return false;
 
 	SOCKADDR_IN clientInfo = {0};
 	int addrsize = sizeof(clientInfo);
-	if ((t.sock = accept(_listener, (sockaddr*)&clientInfo, &addrsize)) == INVALID_SOCKET)
+	if ((t.socket = accept(_listener, (sockaddr*)&clientInfo, &addrsize)) == INVALID_SOCKET)
 		return false;
 
 	t.ip = inet_ntoa(clientInfo.sin_addr);

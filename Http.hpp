@@ -1,9 +1,8 @@
 #pragma once
-#include <iostream>
+#include <string>
 
-class HttpHelper
+namespace Http
 {
-public:
 	static std::string getHeaderValue(std::string allHeaders, std::string headerName)
 	{
 		std::string line;

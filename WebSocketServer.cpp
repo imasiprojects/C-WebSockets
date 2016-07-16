@@ -1,8 +1,9 @@
 #include "WebSocketServer.hpp"
-#include "HttpHelper.hpp"
+#include "Http.hpp"
 #include "Sha1.hpp"
 #include "Base64.hpp"
 #include "WebSocket.hpp"
+#include <iostream>
 
 WebSocketServer::WebSocketServer()
 :_onNewClient(nullptr),_onUnknownMessage(nullptr){
@@ -308,7 +309,7 @@ void WebSocketConnection::threadFunction()
 
 bool WebSocketConnection::performHandShake(std::string buffer)
 {
-	std::string websocketKey = HttpHelper::getHeaderValue(buffer, "Sec-WebSocket-Key");
+	std::string websocketKey = Http::getHeaderValue(buffer, "Sec-WebSocket-Key");
 	if (websocketKey.size() > 0)
 	{
 		std::string sha1Key = Sha1::sha1UnsignedChar(websocketKey + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11");

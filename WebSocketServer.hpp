@@ -57,6 +57,9 @@ class WebSocketServer {
     std::set<WebSocketConnection*> _connections;
 
 protected:
+    std::string _serveFolder;
+    std::string _defaultPage;
+
     WSNewClientCallback _onNewClient;
     WSImasiCallback _onUnknownMessage;
 
@@ -89,6 +92,12 @@ public:
 
     void setAcceptNewClients(bool acceptNewClients);
     bool isAcceptingNewClients() const;
+
+    void setServeFolder(std::string serveFolder);
+    std::string getServeFolder() const;
+
+    void setDefaultPage(std::string defaultPage);
+    std::string getDefaultPage() const;
 
     WSNewClientCallback getNewClientCallback() const;
     WSImasiCallback getUnknownMessageCallback() const;

@@ -9,44 +9,31 @@
 
 void startServer()
 {
-    WebSocketServer* server = new WebSocketServer();
+    WebSocketServer server;
 
-    server->setNewClientCallback([](WebSocketServer* server, WebSocketConnection* connection){
+    server.setNewClientCallback([](WebSocketServer* server, WebSocketConnection* connection){
         std::cout << "New client entered with IP: " << connection->getIp() << std::endl;
 		connection->send("KEY", "holas");
 		connection->send("asd", "adios");
     });
 
-	server->setUnknownMessageCallback([](WebSocketServer* server, WebSocketConnection* connection, std::string key, std::string data)
+	server.setUnknownMessageCallback([](WebSocketServer* server, WebSocketConnection* connection, std::string key, std::string data)
 	{
-		std::cout << "Uknown: [" << key << "] = " << data << std::endl;
+		std::cout << "Unknown: [" << key << "] = " << data << std::endl;
 	});
 
-	server->setDataCallback("Prueba", [](WebSocketServer* server, WebSocketConnection* connection, std::string key, std::string data)
+	server.setDataCallback("Prueba", [](WebSocketServer* server, WebSocketConnection* connection, std::string key, std::string data)
 	{
 		std::cout << "Prueba: [" << key << "] = " << data << std::endl;
 		server->sendPing();
 	});
 
-	/*if (server->start(80))
-	{
-		std::cout << "Server running at port 80" << std::endl;
-		while (server->isRunning())
-		{
-			server->acceptNewClient();
-			std::this_thread::sleep_for(std::chrono::milliseconds(100));
-		}
-	}
-	else
-	{
-		std::cout << "Server couldn't be started" << std::endl;
-	}*/
+	server.setServeFolder("c-websockets");
+	server.setDefaultPage("client.html");
 
-	if(!server->startAndWait(80)){
+	if(!server.startAndWait(80)){
 		std::cout << "Server couldn't be started" << std::endl;
 	}
-
-	delete server;
 }
 
 int main(int argc, char** argv)

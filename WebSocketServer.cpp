@@ -1,4 +1,7 @@
 #include "WebSocketServer.hpp"
+
+#include <fstream>
+
 #include "HttpHelper.hpp"
 #include "Sha1.hpp"
 #include "Base64.hpp"
@@ -61,6 +64,22 @@ void WebSocketServer::setAcceptNewClients(bool acceptNewClients){
 
 bool WebSocketServer::isAcceptingNewClients() const{
     return _acceptNewClients;
+}
+
+void WebSocketServer::setServeFolder(std::string serveFolder){
+    _serveFolder = serveFolder;
+}
+
+std::string WebSocketServer::getServeFolder() const{
+    return _serveFolder;
+}
+
+void WebSocketServer::setDefaultPage(std::string defaultPage){
+    _defaultPage = defaultPage;
+}
+
+std::string WebSocketServer::getDefaultPage() const{
+    return _defaultPage;
 }
 
 bool WebSocketServer::isRunning() const{
@@ -145,6 +164,7 @@ WebSocketConnection::WebSocketConnection(WebSocketServer* server, Connection con
 
 WebSocketConnection::~WebSocketConnection(){
     stopAndWait();
+    _conn.disconnect();
     delete _thread;
 }
 
@@ -330,11 +350,45 @@ void WebSocketConnection::threadFunction()
 				buffer += this->_conn.recv();
 			}
 			while (buffer.rfind("\r\n\r\n") == std::string::npos || sleep());
+            std::map<std::string,std::string> header = HttpHelper::parseHeader(buffer);
 			_handShakeDone = performHandShake(buffer);
 			if(_handShakeDone){
-                WSNewClientCallback temp = _server->getNewClientCallback();
-                if(temp != nullptr)
-                    temp(_server, this);
+                WSNewClientCallback callback = _server->getNewClientCallback();
+                if(callback != nullptr)
+                    callback(_server, this);
+			}else{
+			    std::string folder = _server->getServeFolder();
+                if(folder != ""){
+                    std::string request = buffer.substr(0, buffer.find("HTTP")-1);
+                    request = request.substr(request.find(" ")+1);
+                    request = folder + request;
+                    if(request.size() == 0
+                    || request[request.size()-1] == '/'
+                    || request[request.size()-1] == '\\')
+                        request += _server->getDefaultPage();
+
+                    std::ifstream file(request, std::ios::binary | std::ios::ate);
+                    if(!file){
+                        _conn.send("HTTP/1.1 404 NOT FOUND\r\nconnection: close\r\n\r\n");
+                    }else{
+                        size_t size = file.tellg();
+                        _conn.send("HTTP/1.1 200 OK\r\nconnection: close\r\ncontent-length:" + std::to_string(size) + "\r\n\r\n");
+                        file.seekg(0);
+                        char* buffer = new char[4096];
+                        while(size>0){
+                            file.read(buffer, 4096);
+                            size_t readed = file.gcount();
+                            if(readed>0){
+                                _conn.send(std::string(buffer, readed));
+                                size -= readed;
+                            }
+                        }
+                        delete[] buffer;
+                    }
+
+                }
+                this->_isRunning = false;
+                return;
 			}
 		}
 	}
@@ -344,7 +398,7 @@ void WebSocketConnection::threadFunction()
 
 bool WebSocketConnection::performHandShake(std::string buffer)
 {
-	std::string websocketKey = HttpHelper::getHeaderValue(buffer, "Sec-WebSocket-Key");
+    std::string websocketKey = HttpHelper::getHeaderValue(buffer, "Sec-WebSocket-Key");
 	if (websocketKey.size() > 0)
 	{
 		std::string sha1Key = Sha1::sha1UnsignedChar(websocketKey + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11");

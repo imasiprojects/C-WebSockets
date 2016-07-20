@@ -156,13 +156,11 @@ std::string TCPClient::recv(int maxChars) {
 	int n = ::recv(_socket, buff, maxChars, 0);
 	if (n == 0) {
 		disconnect();
-		delete[] buff;
 		return "";
 	} else if (n<0) return "";
 	std::string t(n, 0);
 	for (int i = 0; i<n; i++)
 		t[i] = buff[i];
-	delete[] buff;
 	return t;
 }
 

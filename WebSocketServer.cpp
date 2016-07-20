@@ -93,7 +93,7 @@ bool WebSocketServer::acceptNewClient(){
     if(conn.sock == SOCKET_ERROR)
         return false;
 
-    _connections.insert(new WebSocketConnection(
+    _connections.push_back(new WebSocketConnection(
         this, conn
     ));
     return true;
@@ -195,7 +195,7 @@ bool WebSocketConnection::isRunning() const{
 bool sleep(unsigned int ms = 1)
 {
 	std::this_thread::sleep_for(std::chrono::milliseconds(ms));
-	return false;
+	return true;
 }
 
 void WebSocketConnection::threadFunction()
@@ -210,14 +210,14 @@ void WebSocketConnection::threadFunction()
 		{
 			do
 			{
-				if (_mustStop)
+				if (_mustStop || !_conn.isConnected())
 				{
 					this->_isRunning = false;
 					return;
 				}
 				buffer += this->_conn.recv(2 - buffer.size());
 			}
-			while (buffer.size() < 2 || sleep());
+			while (buffer.size() < 2 && sleep());
 
 			bool fin = buffer[0] & 0x80;
 			char opCode = buffer[0] & 0xF;
@@ -227,28 +227,28 @@ void WebSocketConnection::threadFunction()
 			{
 				do
 				{
-					if (_mustStop)
+					if (_mustStop || !_conn.isConnected())
 					{
 						this->_isRunning = false;
 						return;
 					}
 					buffer += this->_conn.recv(4 - buffer.size());
 				}
-				while (buffer.size() < 4 || sleep());
+				while (buffer.size() < 4 && sleep());
 				packetSize = *(short*)&buffer[2];
 			}
 			else if (packetSize == 127)
 			{
 				do
 				{
-					if (_mustStop)
+					if (_mustStop || !_conn.isConnected())
 					{
 						this->_isRunning = false;
 						return;
 					}
 					buffer += this->_conn.recv(10 - buffer.size());
 				}
-				while (buffer.size() < 10 || sleep());
+				while (buffer.size() < 10 && sleep());
 				packetSize = *(long long*)&buffer[2];
 			}
 
@@ -257,27 +257,27 @@ void WebSocketConnection::threadFunction()
 			{
 				do
 				{
-					if (_mustStop)
+					if (_mustStop || !_conn.isConnected())
 					{
 						this->_isRunning = false;
 						return;
 					}
 					mask += this->_conn.recv(4 - mask.size());
 				}
-				while (mask.size() < 4 || sleep());
+				while (mask.size() < 4 && sleep());
 			}
 
 			buffer.clear();
 			do
 			{
-				if (_mustStop)
+				if (_mustStop || !_conn.isConnected())
 				{
 					this->_isRunning = false;
 					return;
 				}
 				buffer += this->_conn.recv(packetSize - buffer.size());
 			}
-			while (buffer.size() < packetSize || sleep());
+			while (buffer.size() < packetSize && sleep());
 
 			std::string data = hasMask ? WebSocket::unmask(mask, buffer) : buffer;
 
@@ -342,14 +342,14 @@ void WebSocketConnection::threadFunction()
 		{
 			do
 			{
-				if (_mustStop)
+				if (_mustStop || !_conn.isConnected())
 				{
 					this->_isRunning = false;
 					return;
 				}
 				buffer += this->_conn.recv();
 			}
-			while (buffer.rfind("\r\n\r\n") == std::string::npos || sleep());
+			while (buffer.rfind("\r\n\r\n") == std::string::npos && sleep());
             std::map<std::string,std::string> header = HttpHelper::parseHeader(buffer);
 			_handShakeDone = performHandShake(buffer);
 			if(_handShakeDone){
@@ -357,6 +357,9 @@ void WebSocketConnection::threadFunction()
                 if(callback != nullptr)
                     callback(_server, this);
 			}else{
+
+			    /// HTTP Server
+
 			    std::string folder = _server->getServeFolder();
                 if(folder != ""){
                     std::string request = buffer.substr(0, buffer.find("HTTP")-1);

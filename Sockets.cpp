@@ -35,9 +35,7 @@ std::string recv(SOCKET s, size_t maxChars) {
 		delete[] buff;
 		return "";
 	}
-	std::string t(n, 0);
-	for (int i = 0; i<n; i++)
-		t[i] = buff[i];
+	std::string t(buff, n);
 
 	delete[] buff;
 	return t;
@@ -152,16 +150,14 @@ void TCPClient::disconnect() {
 
 std::string TCPClient::recv(int maxChars) {
 	if (!_connected) return "";
-	char* buff = new char[maxChars];
-	int n = ::recv(_socket, buff, maxChars, 0);
+	if(_recvBuffer.size() < maxChars)
+        _recvBuffer.resize(maxChars);
+	int n = ::recv(_socket, &_recvBuffer[0], maxChars, 0);
 	if (n == 0) {
 		disconnect();
 		return "";
 	} else if (n<0) return "";
-	std::string t(n, 0);
-	for (int i = 0; i<n; i++)
-		t[i] = buff[i];
-	return t;
+	return std::string(&_recvBuffer[0], n);
 }
 
 bool TCPClient::send(const std::string& msg) {

@@ -8,7 +8,12 @@
 	<script type="text/javascript">
 
 	    var imasiWs = new ImasiSoftware.WebSocketClient();
-
+		
+		imasiWs.onConnect = function(){
+			alert("Connected");
+			imasiWs.send("Hi", "Working");
+		}
+		
 	    imasiWs.onMessage = function (key, value) {
 	        alert("Received: {" + key + "} " + value);
 	    }

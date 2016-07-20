@@ -2,7 +2,7 @@
 
 #include <string>
 #include <map>
-#include <set>
+#include <list>
 #include <thread>
 
 #include "sockets.hpp"
@@ -54,7 +54,7 @@ class WebSocketServer {
 
     bool _acceptNewClients;
 
-    std::set<WebSocketConnection*> _connections;
+    std::list<WebSocketConnection*> _connections;
 
 protected:
     std::string _serveFolder;

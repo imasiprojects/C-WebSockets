@@ -76,6 +76,8 @@ class TCPClient {
 	bool _connected;
 	bool _blocking;
 
+	std::vector<char> _recvBuffer;
+
 public:
 	TCPClient();
 	TCPClient(std::string ip, unsigned short port);

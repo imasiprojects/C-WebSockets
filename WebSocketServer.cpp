@@ -107,6 +107,7 @@ bool WebSocketServer::clearClosedConnections(){
             _connections.erase(temp);
         }else ++it;
     }
+	return true;
 }
 
 bool WebSocketServer::setNewClientCallback(WSNewClientCallback callback){
@@ -407,7 +408,7 @@ bool WebSocketConnection::performHandShake(std::string buffer)
 		std::string sha1Key = Sha1::sha1UnsignedChar(websocketKey + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11");
 		std::string finalKey = Base64::encode(sha1Key.c_str());
 
-		this->_conn.send("HTTP/1.1 101 Web Socket Protocol Handshake\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Protocol: chat\r\nSec-WebSocket-Accept: " + finalKey + "\r\n\r\n");
+		this->_conn.send("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: " + finalKey + "\r\n\r\n");
 		return true;
 	}
 	return false;
@@ -415,7 +416,7 @@ bool WebSocketConnection::performHandShake(std::string buffer)
 
 void WebSocketConnection::ping()
 {
-	_lastPingRequest = "Imasi Projects Te Pingea"; // TODO: algo random here
+	_lastPingRequest = "Imasi Software Te Pingea"; // TODO: algo random here
 	this->_conn.send(WebSocket::mask(_lastPingRequest, 0x9));
 }
 

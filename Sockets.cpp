@@ -166,7 +166,7 @@ bool TCPClient::send(const std::string& msg) {
 	if (n == SOCKET_ERROR)
 		if (WSAGetLastError() == WSAENOTCONN)
 			disconnect();
-	return n;
+	return n == 1;
 }
 
 bool TCPClient::isConnected()const {

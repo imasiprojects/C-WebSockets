@@ -338,6 +338,7 @@ bool TCPRawServer::start(unsigned short port) {
 	_listener = sock;
 	_port = port;
 	_on = true;
+	setBlocking(false);
 	return true;
 }
 

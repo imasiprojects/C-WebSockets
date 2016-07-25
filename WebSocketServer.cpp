@@ -174,9 +174,8 @@ std::string WebSocketConnection::getIp() const{
 }
 
 void WebSocketConnection::send(std::string key, std::string data){
-
-	this->_conn.send(WebSocket::mask((char)key.size() + key + data));
-
+	if (this->_handShakeDone)
+	this->_conn.send(WebSocket::mask((char)key.size() + key + data, 0x02));
 }
 
 void WebSocketConnection::stop(){

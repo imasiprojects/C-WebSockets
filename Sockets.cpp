@@ -16,8 +16,8 @@ unsigned int resolveAddress(std::string addr) {
 	addrinfo hints;
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = AF_INET;
-	addrinfo* result = NULL;
-	if (getaddrinfo(addr.c_str(), NULL, &hints, &result) == 0)
+	addrinfo* result = nullptr;
+	if (getaddrinfo(addr.c_str(), nullptr, &hints, &result) == 0)
 		if (result) {
 			ip = ((sockaddr_in*)result->ai_addr)->sin_addr.s_addr;
 			freeaddrinfo(result);
@@ -166,7 +166,7 @@ bool TCPClient::send(const std::string& msg) {
 	if (n == SOCKET_ERROR)
 		if (WSAGetLastError() == WSAENOTCONN)
 			disconnect();
-	return n == 1;
+	return n != 0;
 }
 
 bool TCPClient::isConnected()const {
@@ -181,8 +181,9 @@ unsigned short TCPClient::getPort()const {
 	return _port;
 }
 
-void TCPClient::setBlocking(bool blocking) {
-	if (!_connected) return;
+void TCPClient::setBlocking(bool blocking) const
+{
+	if (!this->_connected) return;
 	::setBlocking(_socket, blocking);
 }
 
@@ -258,11 +259,11 @@ bool TCPServer::send(size_t clientN, std::string msg) {
 }
 
 std::vector<std::string>* TCPServer::getData(size_t clientN) {
-	if (clientN<0 || clientN >= _clients.size()) return 0;
+	if (clientN<0 || clientN >= _clients.size()) return nullptr;
 	return &_clients[clientN].data;
 }
 
-std::string TCPServer::getIp(size_t clientN)const {
+std::string TCPServer::getIp(size_t clientN) const {
 	if (clientN<0 || clientN >= _clients.size()) return "";
 	return _clients[clientN].ip;
 }
@@ -291,7 +292,7 @@ bool _blocking;
 
 bool _on;**/
 
-TCPRawServer::TCPRawServer() :_listener(0), _port(0), _on(0) {}
+TCPRawServer::TCPRawServer() :_listener(0), _port(0), _blocking(0), _on(0) {}
 
 TCPRawServer::TCPRawServer(unsigned short port) : _listener(0), _port(0), _on(0) {
 	start(port);
@@ -304,7 +305,7 @@ TCPRawServer::~TCPRawServer() {
 bool TCPRawServer::start(unsigned short port) {
 	finish();
 
-	addrinfo *result = NULL, hints;
+	addrinfo *result = nullptr, hints;
 
 	ZeroMemory(&hints, sizeof(hints));
 	hints.ai_family = AF_INET;
@@ -312,7 +313,7 @@ bool TCPRawServer::start(unsigned short port) {
 	hints.ai_protocol = IPPROTO_TCP;
 	hints.ai_flags = AI_PASSIVE;
 
-	if (getaddrinfo(NULL, std::to_string(port).c_str(), &hints, &result) != 0)
+	if (getaddrinfo(nullptr, std::to_string(port).c_str(), &hints, &result) != 0)
 		return false;
 
 	SOCKET sock = INVALID_SOCKET;

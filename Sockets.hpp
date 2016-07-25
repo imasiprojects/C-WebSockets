@@ -90,6 +90,6 @@ public:
 	bool isConnected()const;
 	std::string getIp()const;
 	unsigned short getPort()const;
-	void setBlocking(bool blocking);
+	void setBlocking(bool blocking) const;
 	bool isBlocking()const;
 };

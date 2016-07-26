@@ -8,7 +8,7 @@
 #include "WebSocket.hpp"
 
 WebSocketServer::WebSocketServer()
-:_acceptNewClients(true),_instantiator(nullptr),_onNewClient(nullptr),_onUnknownMessage(nullptr){
+:_acceptNewClients(true),_instantiator(nullptr),_onNewClient(nullptr),_onClosedClient(nullptr),_onUnknownMessage(nullptr){
 }
 
 WebSocketServer::~WebSocketServer(){
@@ -113,10 +113,17 @@ bool WebSocketServer::clearClosedConnections(){
 	return true;
 }
 
-bool WebSocketServer::setNewClientCallback(WSNewClientCallback callback){
+bool WebSocketServer::setNewClientCallback(WSEventCallback callback){
     if(isRunning())
         return false;
     _onNewClient = callback;
+    return true;
+}
+
+bool WebSocketServer::setClosedClientCallback(WSEventCallback callback){
+    if(isRunning())
+        return false;
+    _onClosedClient = callback;
     return true;
 }
 
@@ -148,8 +155,12 @@ void WebSocketServer::sendPing()
 	}
 }
 
-WSNewClientCallback WebSocketServer::getNewClientCallback() const{
+WSEventCallback WebSocketServer::getNewClientCallback() const{
     return _onNewClient;
+}
+
+WSEventCallback WebSocketServer::getClosedClientCallback() const{
+    return _onClosedClient;
 }
 
 WSImasiCallback WebSocketServer::getUnknownMessageCallback() const{
@@ -203,201 +214,209 @@ bool sleep(unsigned int ms = 1)
 
 void WebSocketConnection::threadFunction()
 {
-	// Handshake + Loop (leer mensajes)
-	while (!this->_mustStop && this->_conn.isConnected())
-	{
-		std::string buffer;
-		std::string finBuffer;
-		char finOpCode;
-		if (_handShakeDone)
-		{
-			do
-			{
-				if (_mustStop || !_conn.isConnected())
-				{
-					this->_isRunning = false;
-					return;
-				}
-				buffer += this->_conn.recv(2 - buffer.size());
-			}
-			while (buffer.size() < 2 && sleep());
+    ([this](){
+        while (!this->_mustStop && this->_conn.isConnected())
+        {
+            std::string buffer;
+            std::string finBuffer;
+            char finOpCode;
+            if (_handShakeDone)
+            {
+                do
+                {
+                    if (_mustStop || !_conn.isConnected())
+                    {
+                        ///this->_isRunning = false;
+                        return;
+                    }
+                    buffer += this->_conn.recv(2 - buffer.size());
+                }
+                while (buffer.size() < 2 && sleep());
 
-			bool fin = buffer[0] & 0x80;
-			char opCode = buffer[0] & 0xF;
-			bool hasMask = buffer[1] & 0x80;
-			long packetSize = buffer[1] & 127;
-			if (packetSize == 126)
-			{
-				do
-				{
-					if (_mustStop || !_conn.isConnected())
-					{
-						this->_isRunning = false;
-						return;
-					}
-					buffer += this->_conn.recv(4 - buffer.size());
-				}
-				while (buffer.size() < 4 && sleep());
-				packetSize = *(short*)&buffer[2];
-			}
-			else if (packetSize == 127)
-			{
-				do
-				{
-					if (_mustStop || !_conn.isConnected())
-					{
-						this->_isRunning = false;
-						return;
-					}
-					buffer += this->_conn.recv(10 - buffer.size());
-				}
-				while (buffer.size() < 10 && sleep());
-				packetSize = *(long long*)&buffer[2];
-			}
-
-			std::string mask;
-			if (hasMask)
-			{
-				do
-				{
-					if (_mustStop || !_conn.isConnected())
-					{
-						this->_isRunning = false;
-						return;
-					}
-					mask += this->_conn.recv(4 - mask.size());
-				}
-				while (mask.size() < 4 && sleep());
-			}
-
-			buffer.clear();
-			do
-			{
-				if (_mustStop || !_conn.isConnected())
-				{
-					this->_isRunning = false;
-					return;
-				}
-				buffer += this->_conn.recv(packetSize - buffer.size());
-			}
-			while (buffer.size() < packetSize && sleep());
-
-			std::string data = hasMask ? WebSocket::unmask(mask, buffer) : buffer;
-
-			if (fin)
-			{
-				if (opCode == 0x0)
-				{
-					data = finBuffer + data;
-					finBuffer.clear();
-				}
-
-				switch (opCode)
-				{
-					case 0x8:
-					{
-						// Connection close
-						this->_conn.disconnect();
-						break;
-					}
-					case 0x9:
-					{
-						// Ping
-						pong(data);
-						break;
-					}
-					case 0xA:
-					{
-						// Pong
-						/// TODO: comprobar si es igual al ultimo PING, si lo es hay que reiniciar el contador y ya.
-						std::cout << "PONG" << std::endl;
-						break;
-					}
-					default:
-					{
-						std::string key = data.substr(1, data[0]);
-						std::string value = data.substr(data[0] + 1);
-
-						std::map<std::string, WSImasiCallback> dataCallBacks = this->_server->getMessageCallbacks();
-						if (dataCallBacks.find(key) != dataCallBacks.end())
-						{
-							dataCallBacks[key](this->_server, this, key, value);
-						}
-						else
-						{
-							WSImasiCallback uknownDataCallback = this->_server->getUnknownMessageCallback();
-							if (uknownDataCallback != nullptr) uknownDataCallback(this->_server, this, key, value);
-						}
-						break;
-					}
-				}
-			}
-			else
-			{
-				if (opCode != 0x0)
-				{
-					finOpCode = opCode;
-				}
-				finBuffer += data;
-			}
-		}
-		else
-		{
-			do
-			{
-				if (_mustStop || !_conn.isConnected())
-				{
-					this->_isRunning = false;
-					return;
-				}
-				buffer += this->_conn.recv();
-			}
-			while (buffer.rfind("\r\n\r\n") == std::string::npos && sleep());
-            std::map<std::string,std::string> header = HttpHelper::parseHeader(buffer);
-			_handShakeDone = performHandShake(buffer);
-			if(_handShakeDone){
-                WSNewClientCallback callback = _server->getNewClientCallback();
-                if(callback != nullptr)
-                    callback(_server, this);
-			}else{
-
-			    /// HTTP Server
-
-			    std::string folder = _server->getServeFolder();
-                if(folder != ""){
-                    std::string request = buffer.substr(0, buffer.find("HTTP")-1);
-                    request = request.substr(request.find(" ")+1);
-                    request = folder + request;
-                    if(request.size() == 0
-                    || request[request.size()-1] == '/'
-                    || request[request.size()-1] == '\\')
-                        request += _server->getDefaultPage();
-
-                    std::ifstream file(request, std::ios::binary | std::ios::ate);
-                    if(!file){
-                        _conn.send("HTTP/1.1 404 NOT FOUND\r\nconnection: close\r\n\r\n");
-                    }else{
-                        size_t size = file.tellg();
-                        _conn.send("HTTP/1.1 200 OK\r\nconnection: close\r\ncontent-length:" + std::to_string(size) + "\r\n\r\n");
-                        file.seekg(0);
-                        char* buffer = new char[4096];
-                        while(size>0){
-                            file.read(buffer, 4096);
-                            size_t readed = file.gcount();
-                            if(readed>0){
-                                _conn.send(std::string(buffer, readed));
-                                size -= readed;
-                            }
+                bool fin = buffer[0] & 0x80;
+                char opCode = buffer[0] & 0xF;
+                bool hasMask = buffer[1] & 0x80;
+                long packetSize = buffer[1] & 127;
+                if (packetSize == 126)
+                {
+                    do
+                    {
+                        if (_mustStop || !_conn.isConnected())
+                        {
+                            ///this->_isRunning = false;
+                            return;
                         }
-                        delete[] buffer;
+                        buffer += this->_conn.recv(4 - buffer.size());
+                    }
+                    while (buffer.size() < 4 && sleep());
+                    packetSize = *(short*)&buffer[2];
+                }
+                else if (packetSize == 127)
+                {
+                    do
+                    {
+                        if (_mustStop || !_conn.isConnected())
+                        {
+                           /// this->_isRunning = false;
+                            return;
+                        }
+                        buffer += this->_conn.recv(10 - buffer.size());
+                    }
+                    while (buffer.size() < 10 && sleep());
+                    packetSize = *(long long*)&buffer[2];
+                }
+
+                std::string mask;
+                if (hasMask)
+                {
+                    do
+                    {
+                        if (_mustStop || !_conn.isConnected())
+                        {
+                            ///this->_isRunning = false;
+                            return;
+                        }
+                        mask += this->_conn.recv(4 - mask.size());
+                    }
+                    while (mask.size() < 4 && sleep());
+                }
+
+                buffer.clear();
+                do
+                {
+                    if (_mustStop || !_conn.isConnected())
+                    {
+                        ///this->_isRunning = false;
+                        return;
+                    }
+                    buffer += this->_conn.recv(packetSize - buffer.size());
+                }
+                while (buffer.size() < packetSize && sleep());
+
+                std::string data = hasMask ? WebSocket::unmask(mask, buffer) : buffer;
+
+                if (fin)
+                {
+                    if (opCode == 0x0)
+                    {
+                        data = finBuffer + data;
+                        finBuffer.clear();
                     }
 
+                    switch (opCode)
+                    {
+                        case 0x8:
+                        {
+                            // Connection close
+                            this->_conn.disconnect();
+                            break;
+                        }
+                        case 0x9:
+                        {
+                            // Ping
+                            pong(data);
+                            break;
+                        }
+                        case 0xA:
+                        {
+                            // Pong
+                            /// TODO: comprobar si es igual al ultimo PING, si lo es hay que reiniciar el contador y ya.
+                            std::cout << "PONG" << std::endl;
+                            break;
+                        }
+                        default:
+                        {
+                            std::string key = data.substr(1, data[0]);
+                            std::string value = data.substr(data[0] + 1);
+
+                            const std::map<std::string, WSImasiCallback>& dataCallBacks = this->_server->getMessageCallbacks();
+                            auto it = dataCallBacks.find(key);
+                            if (it != dataCallBacks.end())
+                            {
+                                it->second(this->_server, this, key, value);
+                            }
+                            else
+                            {
+                                WSImasiCallback uknownDataCallback = this->_server->getUnknownMessageCallback();
+                                if (uknownDataCallback != nullptr) uknownDataCallback(this->_server, this, key, value);
+                            }
+                            break;
+                        }
+                    }
                 }
-                this->_isRunning = false;
-                return;
-			}
-		}
-	}
+                else
+                {
+                    if (opCode != 0x0)
+                    {
+                        finOpCode = opCode;
+                    }
+                    finBuffer += data;
+                }
+            }
+            else
+            {
+                do
+                {
+                    if (_mustStop || !_conn.isConnected())
+                    {
+                        ///this->_isRunning = false;
+                        return;
+                    }
+                    buffer += this->_conn.recv();
+                }
+                while (buffer.rfind("\r\n\r\n") == std::string::npos && sleep());
+                std::map<std::string,std::string> header = HttpHelper::parseHeader(buffer);
+                _handShakeDone = performHandShake(buffer);
+                if(_handShakeDone){
+                    WSEventCallback callback = _server->getNewClientCallback();
+                    if(callback != nullptr)
+                        callback(_server, this);
+                }else{
+
+                    /// HTTP Server
+
+                    std::string folder = _server->getServeFolder();
+                    if(folder != ""){
+                        std::string request = buffer.substr(0, buffer.find("HTTP")-1);
+                        request = request.substr(request.find(" ")+1);
+                        request = folder + request;
+                        if(request.size() == 0
+                        || request[request.size()-1] == '/'
+                        || request[request.size()-1] == '\\')
+                            request += _server->getDefaultPage();
+
+                        std::ifstream file(request, std::ios::binary | std::ios::ate);
+                        if(!file){
+                            _conn.send("HTTP/1.1 404 NOT FOUND\r\nconnection: close\r\n\r\n");
+                        }else{
+                            size_t size = file.tellg();
+                            _conn.send("HTTP/1.1 200 OK\r\nconnection: close\r\ncontent-length:" + std::to_string(size) + "\r\n\r\n");
+                            file.seekg(0);
+                            char* buffer = new char[4096];
+                            while(size>0){
+                                file.read(buffer, 4096);
+                                size_t readed = file.gcount();
+                                if(readed>0){
+                                    _conn.send(std::string(buffer, readed));
+                                    size -= readed;
+                                }
+                            }
+                            delete[] buffer;
+                        }
+
+                    }
+                    ///this->_isRunning = false;
+                    return;
+                }
+            }
+        }
+    })();
+
+    if(_handShakeDone){
+        WSEventCallback callback = _server->getClosedClientCallback();
+        if(callback!=nullptr)
+            callback(_server, this);
+    }
 
 	this->_isRunning = false;
 }

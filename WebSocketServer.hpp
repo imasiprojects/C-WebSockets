@@ -10,7 +10,7 @@
 class WebSocketServer;
 class WebSocketConnection;
 
-using WSNewClientCallback = void(*)(WebSocketServer* srv, WebSocketConnection* conn);
+using WSEventCallback = void(*)(WebSocketServer* srv, WebSocketConnection* conn);
 using WSImasiCallback = void(*)(WebSocketServer* srv, WebSocketConnection* conn, std::string key, std::string data);
 using WSInstantiator = WebSocketConnection*(*)(WebSocketServer* server, Connection conn);
 
@@ -34,7 +34,7 @@ class WebSocketConnection{
 public:
     WebSocketConnection(WebSocketServer* server, Connection conn);
     WebSocketConnection(const WebSocketConnection&) = delete;
-    ~WebSocketConnection();
+    virtual ~WebSocketConnection();
 
     std::string getIp() const;
 
@@ -63,7 +63,8 @@ protected:
 
     WSInstantiator _instantiator;
 
-    WSNewClientCallback _onNewClient;
+    WSEventCallback _onNewClient;
+    WSEventCallback _onClosedClient;
     WSImasiCallback _onUnknownMessage;
 
     /// IMASI Protocol
@@ -71,7 +72,7 @@ protected:
 
 public:
     WebSocketServer();
-    ~WebSocketServer();
+    virtual ~WebSocketServer();
 
     bool start(unsigned short port);
     bool startAndWait(unsigned short port);
@@ -82,7 +83,8 @@ public:
     bool acceptNewClient();
     bool clearClosedConnections();
 
-    bool setNewClientCallback(WSNewClientCallback callback);
+    bool setNewClientCallback(WSEventCallback callback);
+    bool setClosedClientCallback(WSEventCallback callback);
 
     /// IMASI Protocol
     bool setDataCallback(std::string key, WSImasiCallback callback);
@@ -104,7 +106,8 @@ public:
 
     void setInstantiator(WSInstantiator instantiator);
 
-    WSNewClientCallback getNewClientCallback() const;
+    WSEventCallback getNewClientCallback() const;
+    WSEventCallback getClosedClientCallback() const;
     WSImasiCallback getUnknownMessageCallback() const;
     const std::map<std::string, WSImasiCallback>& getMessageCallbacks() const;
 };

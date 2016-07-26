@@ -8,9 +8,7 @@
 #include "WebSocket.hpp"
 
 WebSocketServer::WebSocketServer()
-:_acceptNewClients(true),_onNewClient(nullptr),_onUnknownMessage(nullptr){
-    _onNewClient = nullptr;
-    _onUnknownMessage = nullptr;
+:_acceptNewClients(true),_instantiator(nullptr),_onNewClient(nullptr),_onUnknownMessage(nullptr){
 }
 
 WebSocketServer::~WebSocketServer(){
@@ -38,6 +36,7 @@ bool WebSocketServer::startAndWait(unsigned short port){
     while (isRunning()){
         if(_acceptNewClients)
             acceptNewClient();
+
         clearClosedConnections();
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
@@ -82,6 +81,10 @@ std::string WebSocketServer::getDefaultPage() const{
     return _defaultPage;
 }
 
+void WebSocketServer::setInstantiator(WSInstantiator instantiator){
+    _instantiator = instantiator;
+}
+
 bool WebSocketServer::isRunning() const{
     return _server.isOn();
 }
@@ -93,9 +96,9 @@ bool WebSocketServer::acceptNewClient(){
     if(conn.sock == SOCKET_ERROR)
         return false;
 
-    _connections.push_back(new WebSocketConnection(
-        this, conn
-    ));
+    _connections.push_back(_instantiator==nullptr?
+                           new WebSocketConnection(this, conn)
+                          :_instantiator(this, conn));
     return true;
 }
 

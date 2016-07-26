@@ -7,6 +7,17 @@
 #include "Sockets.hpp"
 #include "WebSocketServer.hpp"
 
+
+class CustomConnection : public WebSocketConnection{
+public:
+    int n;
+
+    CustomConnection(WebSocketServer* server, Connection conn)
+    :WebSocketConnection(server, conn), n(123){}
+
+};
+
+
 void startServer()
 {
     WebSocketServer server;
@@ -19,17 +30,25 @@ void startServer()
 
 	server.setUnknownMessageCallback([](WebSocketServer* server, WebSocketConnection* connection, std::string key, std::string data)
 	{
+	    CustomConnection* conn = (CustomConnection*)connection;
+	    std::cout << "N: " << conn->n++ << std::endl;
 		std::cout << "Unknown: [" << key << "] = " << data << std::endl;
 	});
 
 	server.setDataCallback("Prueba", [](WebSocketServer* server, WebSocketConnection* connection, std::string key, std::string data)
 	{
+	    CustomConnection* conn = (CustomConnection*)connection;
+	    std::cout << "N: " << conn->n++ << std::endl;
 		std::cout << "Prueba: [" << key << "] = " << data << std::endl;
 		server->sendPing();
 	});
 
 	server.setServeFolder("c-websockets");
 	server.setDefaultPage("client.html");
+
+	server.setInstantiator([](WebSocketServer* server, Connection conn)->WebSocketConnection*{
+        return new CustomConnection(server, conn);
+    });
 
 	if(!server.startAndWait(80)){
 		std::cout << "Server couldn't be started" << std::endl;

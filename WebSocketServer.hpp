@@ -10,8 +10,9 @@
 class WebSocketServer;
 class WebSocketConnection;
 
-typedef void(*WSNewClientCallback)(WebSocketServer* srv, WebSocketConnection* conn);
-typedef void(*WSImasiCallback)(WebSocketServer* srv, WebSocketConnection* conn, std::string key, std::string data);
+using WSNewClientCallback = void(*)(WebSocketServer* srv, WebSocketConnection* conn);
+using WSImasiCallback = void(*)(WebSocketServer* srv, WebSocketConnection* conn, std::string key, std::string data);
+using WSInstantiator = WebSocketConnection*(*)(WebSocketServer* server, Connection conn);
 
 
 class WebSocketConnection{
@@ -60,6 +61,8 @@ protected:
     std::string _serveFolder;
     std::string _defaultPage;
 
+    WSInstantiator _instantiator;
+
     WSNewClientCallback _onNewClient;
     WSImasiCallback _onUnknownMessage;
 
@@ -98,6 +101,8 @@ public:
 
     void setDefaultPage(std::string defaultPage);
     std::string getDefaultPage() const;
+
+    void setInstantiator(WSInstantiator instantiator);
 
     WSNewClientCallback getNewClientCallback() const;
     WSImasiCallback getUnknownMessageCallback() const;

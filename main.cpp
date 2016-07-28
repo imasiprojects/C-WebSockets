@@ -9,13 +9,25 @@
 
 
 class CustomConnection : public WebSocketConnection{
+    static int nextId;
+    int id;
+
 public:
-    int n;
 
     CustomConnection(WebSocketServer* server, Connection conn)
-    :WebSocketConnection(server, conn), n(123){}
+    :WebSocketConnection(server, conn), id(0){}
+
+    int getId() const{
+        return id;
+    }
+
+    void setId(){
+        if(id<=0)
+            id = nextId++;
+    }
 
 };
+int CustomConnection::nextId = 1;
 
 
 void startServer()
@@ -23,23 +35,27 @@ void startServer()
     WebSocketServer server;
 
     server.setNewClientCallback([](WebSocketServer* server, WebSocketConnection* connection){
-        std::cout << "New client entered with IP: " << connection->getIp() << std::endl;
-		connection->send("KEY", "holas");
-		connection->send("asd", "adios");
+        CustomConnection* conn = (CustomConnection*)connection;
+        conn->setId();
+        std::cout << "New client entered with IP: " << connection->getIp() << ", ID: " << conn->getId() << std::endl;
+		connection->send("saludo", "hola");
+    });
+
+    server.setClosedClientCallback([](WebSocketServer* server, WebSocketConnection* connection){
+        CustomConnection* conn = (CustomConnection*)connection;
+        std::cout << "Client with ID: " << conn->getId() << " disconnected." << std::endl;
     });
 
 	server.setUnknownMessageCallback([](WebSocketServer* server, WebSocketConnection* connection, std::string key, std::string data)
 	{
 	    CustomConnection* conn = (CustomConnection*)connection;
-	    std::cout << "N: " << conn->n++ << std::endl;
-		std::cout << "Unknown: [" << key << "] = " << data << std::endl;
+		std::cout << "Id: " << conn->getId() << " -> Unknown: [" << key << "] = " << data << std::endl;
 	});
 
 	server.setDataCallback("Prueba", [](WebSocketServer* server, WebSocketConnection* connection, std::string key, std::string data)
 	{
 	    CustomConnection* conn = (CustomConnection*)connection;
-	    std::cout << "N: " << conn->n++ << std::endl;
-		std::cout << "Prueba: [" << key << "] = " << data << std::endl;
+		std::cout << "Id: " << conn->getId() << " -> [" << key << "] = " << data << std::endl;
 		server->sendPing();
 	});
 

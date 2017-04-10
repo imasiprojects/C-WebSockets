@@ -1,47 +1,37 @@
 <!DOCTYPE HTML>
 <html>
-   <head>
-	
-      <script type="text/javascript">
-         function WebSocketTest()
-         {
-            if ("WebSocket" in window)
-            {               
-               var ws = new WebSocket("ws://localhost:80/");
-				
-               ws.onopen = function()
-               {
-				  alert("Connection successful");
-				  
-				  alert("Sending message...");
-                  ws.send("Message to send");
-               };
-				
-               ws.onmessage = function (evt) 
-               { 
-                  var received_msg = evt.data;
-                  alert("Message is received: " + received_msg);
-               };
-				
-               ws.onclose = function()
-               { 
-                  alert("Connection is closed..."); 
-               };
-            }
-            
-            else
-            {
-               alert("WebSocket NOT supported by your Browser!");
-            }
-         }
-      </script>
+<head>
+	<title>WebSocket Test</title>
+
+    <!-- ReSharper disable Html.EventNotResolved -->
+	<script type="text/javascript" src="imasiws.js"></script>
+	<script type="text/javascript">
+
+	    var imasiWs = new ImasiSoftware.WebSocketClient();
 		
-   </head>
-   <body>
-   
-      <div id="sse">
-         <a href="javascript:WebSocketTest()">Run WebSocket</a>
-      </div>
-      
-   </body>
+		imasiWs.onConnect = function(){
+			alert("Connected");
+			imasiWs.send("Hi", "Working");
+		}
+		
+	    imasiWs.onMessage = function (key, value) {
+	        alert("Received: {" + key + "} " + value);
+	    }
+
+	    imasiWs.addEventListener('KEY', function(data) {
+	        alert('Event KEY received with data: ' + data);
+	        imasiWs.send('YES!', "4chaaan.org XD");
+	        imasiWs.send('Prueba', "Hola que tal");
+	    });
+
+	    imasiWs.connect("localhost", 80);
+
+	</script>
+
+</head>
+<body>
+
+    Refresh 4 fun
+
+</body>
 </html>

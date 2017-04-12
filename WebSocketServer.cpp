@@ -5,7 +5,7 @@
 #include "HttpHelper.hpp"
 #include "Sha1.hpp"
 #include "Base64.hpp"
-#include "WebSocket.hpp"
+#include "WebSocketHelper.hpp"
 
 WebSocketServer::WebSocketServer()
     :_acceptNewClients(true)

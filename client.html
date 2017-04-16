@@ -3,25 +3,25 @@
 <head>
 	<title>WebSocket Test</title>
 
-    <!-- ReSharper disable Html.EventNotResolved -->
 	<script type="text/javascript" src="imasiws.js"></script>
 	<script type="text/javascript">
 
 	    var imasiWs = new ImasiSoftware.WebSocketClient();
 		
-		imasiWs.onConnect = function(){
+        imasiWs.onConnect = function()
+        {
 			alert("Connected");
 			imasiWs.send("Hi", "Working");
 		}
 		
-	    imasiWs.onMessage = function (key, value) {
+        imasiWs.onMessage = function(key, value)
+        {
 	        alert("Received: {" + key + "} " + value);
 	    }
 
-	    imasiWs.addEventListener('KEY', function(data) {
-	        alert('Event KEY received with data: ' + data);
-	        imasiWs.send('YES!', "4chaaan.org XD");
-	        imasiWs.send('Prueba', "Hola que tal");
+        imasiWs.addEventListener('saludo', function(key, data)
+        {
+	        alert('Event ' + key + ' received with data: ' + data);
 	    });
 
 	    imasiWs.connect("localhost", 80);

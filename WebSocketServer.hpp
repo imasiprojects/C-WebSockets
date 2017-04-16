@@ -63,7 +63,7 @@ protected:
     std::string _serveFolder;
     std::string _defaultPage;
 
-    WSInstantiator _instantiator;
+    WSInstantiator _instantiator; // Add desInstantiator for freeing memory
 
     WSEventCallback _onNewClient;
     WSEventCallback _onClosedClient;

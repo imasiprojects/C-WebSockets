@@ -1,0 +1,25 @@
+Mutex en map (quizás, con lambda)
+
+
+
+SERVER DATA
+
+-List of Socket+State (HTTP/Handshake pending)
+    -> State: Buffer + id of the current protocol part
+
+-List of Socket+State (WebSockets)
+    -> State: Buffer + last ping string and time
+
+
+SERVER TASKS
+
+-(Maybe just "newClient") New clients
+    -> New clients are moved to a new list of thread/protocol state
+
+-HTTP/WebSocket protocol
+    -> If protocol is finished and it is HTTP, remove socket
+    -> If it is WebSocket, move to connected sockets list
+
+-Read WebSocket packets
+    -> If packet sucesfully read, decipher Imasi protocol and create callback task
+    -> If socket/packet error/timeout/closed, create closedSocket callback task and remove socket

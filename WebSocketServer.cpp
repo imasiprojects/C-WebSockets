@@ -320,8 +320,6 @@ void WebSocketConnection::threadFunction()
                 {
                     if (_mustStop || !_conn.isConnected())
                     {
-                        ///this->_isRunning = false;
-
                         return;
                     }
 
@@ -339,8 +337,6 @@ void WebSocketConnection::threadFunction()
                     {
                         if (_mustStop || !_conn.isConnected())
                         {
-                            ///this->_isRunning = false;
-
                             return;
                         }
 
@@ -355,8 +351,6 @@ void WebSocketConnection::threadFunction()
                     {
                         if (_mustStop || !_conn.isConnected())
                         {
-                           /// this->_isRunning = false;
-
                             return;
                         }
 
@@ -374,8 +368,6 @@ void WebSocketConnection::threadFunction()
                     {
                         if (_mustStop || !_conn.isConnected())
                         {
-                            ///this->_isRunning = false;
-
                             return;
                         }
 
@@ -389,8 +381,6 @@ void WebSocketConnection::threadFunction()
                 {
                     if (_mustStop || !_conn.isConnected())
                     {
-                        ///this->_isRunning = false;
-
                         return;
                     }
 

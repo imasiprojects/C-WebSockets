@@ -1,72 +1,86 @@
 ﻿"use strict";
 
-// Main Static Object (as namespace)
 var ImasiSoftware = ImasiSoftware || {};
 
-ImasiSoftware.WebSocketClient = function() {
+ImasiSoftware.WebSocketClient = function()
+{
 
     this.webSocket = null;
     this.eventList = new Array();
 
-    this.onConnect = function() {
+    this.onConnect = function()
+    {
         alert("Connected");
     };
-    this.onClose = function() {
+
+    this.onClose = function ()
+    {
         alert("Connection closed");
     };
-    this.onError = function() {
+
+    this.onError = function ()
+    {
         alert("Error");
     };
-    this.onMessage = function(key, value) {};
 
+    this.onMessage = function(key, value) {};
 };
 
 ImasiSoftware.WebSocketClient.prototype.connect = function (host, port) {
-
-    var that = this;
+    var _this = this;
 
     if ("WebSocket" in window) {
-
         this.webSocket = new WebSocket("ws://" + host + ":" + port + "/");
+        this.webSocket.binaryType = "arraybuffer";
         this.webSocket.onopen = this.onConnect;
         this.webSocket.onclose = this.onClose;
         this.webSocket.onerror = this.onError;
+
         this.webSocket.onmessage = function (ev) {
-            var keySize = ev.data.charCodeAt(0) + 1;
+            var key = null;
+            var value = null;
 
-            var key = ev.data.substring(1, keySize);
-            var value = ev.data.substring(keySize);
+            if (ev.data instanceof ArrayBuffer)
+            {
+                var uint8Array = new Uint8Array(ev.data);
+                var keySize = uint8Array[0];
 
-            var event = that.eventList[key] || null;
-            if (event !== null) {
-                event(value);
-            } else {
-                that.onMessage(key, value);
+                key = uint8Array.slice(1, keySize + 1);
+                value = uint8Array.slice(keySize + 1);
+
+                var decoder = new TextDecoder("utf-8");
+
+                key = decoder.decode(key);
+                value = decoder.decode(value);
             }
+            else
+            {
+                var keySize = ev.data.charCodeAt(0);
+
+                key = ev.data.substring(1, keySize + 1);
+                value = ev.data.substring(keySize + 1);
+            }
+
+            var event = _this.eventList[key] || _this.onMessage;
+
+            event(key, value);
         };
-
     } else {
-
-        alert("WebSocket is not supported on your Browser. UPDATE TO MOZILLA NOOOB!!");
-
+        alert("WebSocket is not supported on your Browser");
     }
-
 }
 
-ImasiSoftware.WebSocketClient.prototype.send = function(key, value) {
-
+ImasiSoftware.WebSocketClient.prototype.send = function (key, value)
+{
     this.webSocket.send(String.fromCharCode(key.length) + key + value);
-
 }
 
-ImasiSoftware.WebSocketClient.prototype.addEventListener = function(key, callback) {
-
+ImasiSoftware.WebSocketClient.prototype.addEventListener = function (key, callback)
+{
     this.eventList[key] = callback;
-
 }
 
-ImasiSoftware.WebSocketClient.prototype.removeEventListener = function(key) {
-
+ImasiSoftware.WebSocketClient.prototype.removeEventListener = function (key)
+{
     this.eventList[key] = null;
-
 }

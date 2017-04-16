@@ -3,7 +3,7 @@
 
 namespace WebSocket
 {
-    static std::string mask(std::string text, unsigned char opCode = 0x1)
+    static std::string mask(const std::string& text, unsigned char opCode = 0x1)
     {
         int length = text.size();
         std::string header;
@@ -27,7 +27,7 @@ namespace WebSocket
         return header + text;
     }
 
-    static std::string unmask(std::string mask, std::string data)
+    static std::string unmask(const std::string& mask, const std::string& data)
     {
         std::string text;
 
@@ -39,7 +39,7 @@ namespace WebSocket
         return text;
     }
 
-    static std::string unmask(std::string packet)
+    static std::string unmask(const std::string& packet)
     {
         // 0 3 M M M M D D D
         // 0 126 X X M M M M D D D D D...126

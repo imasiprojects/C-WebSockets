@@ -2,14 +2,48 @@
 
 
 
-NewWebSocketServer::NewWebSocketServer(size_t threadCount)
-    : _threadPool(threadCount)
+NewWebSocketServer::NewWebSocketServer()
+    : _threadPool(nullptr)
+    , _isStopping(false)
+    , _acceptNewClients(true)
 {
 }
 
 
 NewWebSocketServer::~NewWebSocketServer()
 {
+    stop();
+}
+
+bool NewWebSocketServer::start(unsigned short port, size_t eventHandlerThreadCount)
+{
+    stop();
+
+    if (_server.start(port))
+    {
+        _server.setBlocking(false);
+
+        _threadPool = new ThreadPool(eventHandlerThreadCount + 3);
+
+
+        _threadPool->addTask([]() {});
+        // TODO: Add NewClients and HTTPWebSocketProtocol tasks
+    }
+
+    return false;
+}
+
+void NewWebSocketServer::stop()
+{
+    if (isRunning())
+    {
+        _isStopping = true;
+
+        delete _threadPool;
+        _server.finish();
+
+        _isStopping = false;
+    }
 }
 
 // Setters
@@ -91,7 +125,7 @@ bool NewWebSocketServer::setDataCallback(std::string key, WSImasiCallback callba
 
 bool NewWebSocketServer::isRunning() const
 {
-    return _server.isOn();
+    return _threadPool != nullptr && !_isStopping && _server.isOn();
 }
 
 bool NewWebSocketServer::isAcceptingNewClients() const

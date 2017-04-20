@@ -1,5 +1,7 @@
 Mutex en map (quizás, con lambda)
 
+Remember to call isRunning before adding tasks
+
 
 
 SERVER DATA

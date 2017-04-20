@@ -21,16 +21,16 @@ using WSDestructor = void(*)(NewWebSocketServer* server, WebSocketConnection* co
 
 class NewWebSocketServer
 {
-    ThreadPool _threadPool;
-
+    ThreadPool* _threadPool;
     TCPRawServer _server;
 
+    bool _isStopping;
     bool _acceptNewClients;
-
-    std::list<WebSocketConnection*> _connections;
 
     std::string _serveFolder;
     std::string _defaultPage;
+
+    // Callbacks
 
     WSInstantiator _instantiator;
     WSDestructor _destructor;
@@ -41,13 +41,16 @@ class NewWebSocketServer
     WSImasiCallback _onUnknownMessage;
     std::map<std::string, WSImasiCallback> _messageCallbacks;
 
+    // Tasks
+
+    static void acceptClientsTask();
+
 public:
-    NewWebSocketServer(size_t threadCount);
+    NewWebSocketServer();
     ~NewWebSocketServer();
 
-    bool start(unsigned short port);
-    bool startAndWait(unsigned short port);
-    void close();
+    bool start(unsigned short port, size_t eventHandlerThreadCount);
+    void stop();
 
 
     //bool acceptNewClient(); TASK

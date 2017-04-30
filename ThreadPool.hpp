@@ -61,7 +61,12 @@ class ThreadPool
         }
     }
 
-    template<typename Function, typename ReturnType, typename ...Args>
+    template<
+        typename Function,
+        typename ReturnType,
+        typename ...Args,
+        typename = typename std::enable_if<!std::is_same<ReturnType, void>::value>::type
+    >
     static void callAndSetPromise(std::promise<ReturnType>* promise, Function task, Args... args)
     {
         promise->set_value(task(args...));
@@ -127,7 +132,6 @@ public:
 
         std::promise<ReturnType> *promise = new std::promise<ReturnType>();
         std::future<ReturnType> future = promise->get_future();
-
         auto task = std::bind(callAndSetPromise<Function, ReturnType, Args...>, promise, rawTask, args...);
 
         std::unique_lock<std::mutex> lock(_mutex);

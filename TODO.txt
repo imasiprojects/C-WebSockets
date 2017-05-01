@@ -1,7 +1,7 @@
 Mutex en map (quizás, con lambda)
 
 Remember to call isRunning before adding tasks
-
+Add params for number of basic tasks on constructor, and add that many threads
 
 
 SERVER DATA
@@ -25,3 +25,8 @@ SERVER TASKS
 -Read WebSocket packets
     -> If packet sucesfully read, decipher Imasi protocol and create callback task
     -> If socket/packet error/timeout/closed, create closedSocket callback task and remove socket
+
+
+ACTUAL IMPLEMENTATION
+    -acceptClientsTask - 1 thread, always
+    -handshakeHandlerTask - N threads, enqueuing himself if pending handshake

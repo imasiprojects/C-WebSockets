@@ -1,14 +1,143 @@
 #include "NewWebSocketServer.hpp"
 
+#include "WebSocketHelper.hpp"
+#include "HttpHelper.hpp"
+#include "Sha1.hpp"
+#include "Base64.hpp"
+
+
+NewWebSocketConnection::NewWebSocketConnection(NewWebSocketServer* server, ClientData* clientData)
+{
+    _server = server;
+    _clientData = clientData;
+}
+
+NewWebSocketConnection::~NewWebSocketConnection()
+{
+}
+
+void NewWebSocketConnection::send(std::string key, std::string data)
+{
+    _clientData->client->send(WebSocketHelper::mask((char) key.size() + key + data, 0x02));
+}
+
+
+bool NewWebSocketServer::performHandshake(ClientData* clientData)
+{
+    std::string websocketKey = HttpHelper::getHeaderValue(clientData->buffer, "Sec-WebSocket-Key");
+
+    if (websocketKey.size() > 0)
+    {
+        std::string sha1Key = Sha1::sha1UnsignedChar(websocketKey + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11");
+        std::string finalKey = Base64::encode(sha1Key.c_str());
+
+        clientData->client->send("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: " + finalKey + "\r\n\r\n");
+
+        return true;
+    }
+    return false;
+}
+
+void NewWebSocketServer::acceptClientsTask(NewWebSocketServer* webSocketServer)
+{
+    TCPRawServer& server = webSocketServer->_server;
+
+    while (webSocketServer->isRunning())
+    {
+        Connection connection = server.newClient();
+
+        if (connection.sock != SOCKET_ERROR)
+        {
+            TCPClient* client = new TCPClient(connection.sock, connection.ip, server.getPort());
+
+            webSocketServer->_rawTCPClientsMutex.lock();
+            webSocketServer->_rawTCPClients.push_back(new ClientData{client, "", clock()});
+            webSocketServer->_rawTCPClientsMutex.unlock();
+
+            webSocketServer->_threadPool->addTask(NewWebSocketServer::acceptClientsTask, webSocketServer);
+        }
+        else
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+    }
+}
+
+void NewWebSocketServer::handshakeHandlerTask(NewWebSocketServer* webSocketServer)
+{
+    if (webSocketServer->isRunning())
+    {
+        TCPRawServer& server = webSocketServer->_server;
+
+        webSocketServer->_rawTCPClientsMutex.lock();
+
+        if (webSocketServer->_rawTCPClients.size() == 0) // Should never happen
+        {
+            webSocketServer->_rawTCPClientsMutex.unlock();
+
+            return;
+        }
+
+        ClientData* clientData = webSocketServer->_rawTCPClients.front();
+        webSocketServer->_rawTCPClients.pop_front();
+        webSocketServer->_rawTCPClientsMutex.unlock();
+
+        TCPClient& client = *clientData->client;
+        std::string& buffer = clientData->buffer;
+
+        buffer += client.recv();
+
+        if (!client.isConnected() || clock() - clientData->createdOn >= webSocketServer->getTimeout())
+        {
+            delete clientData->client;
+            delete clientData;
+        }
+        else
+        {
+            if (buffer.rfind("\r\n\r\n") != std::string::npos)
+            {
+                bool _handShakeDone = performHandshake(clientData);
+
+                if (_handShakeDone)
+                {
+                    WSInstantiator instantiator =  webSocketServer->getInstantiator();
+                    WSEventCallback newClientCallback = webSocketServer->getNewClientCallback();
+
+                    NewWebSocketConnection* connection;
+
+                    if (instantiator != nullptr)
+                    {
+                        connection = instantiator(webSocketServer, clientData);
+                    }
+                    else
+                    {
+                        connection = new NewWebSocketConnection(webSocketServer, clientData);
+                    }
+
+                    if (newClientCallback != nullptr)
+                    {
+                        newClientCallback(webSocketServer, connection);
+                    }
+
+                    // TODO: Add to list of clients
+                }
+                else
+                {
+                    // TODO: HTTP
+                }
+            }
+        }
+
+    }
+}
 
 
 NewWebSocketServer::NewWebSocketServer()
     : _threadPool(nullptr)
     , _isStopping(false)
     , _acceptNewClients(true)
-{
-}
-
+    , _timeout(1000)
+{}
 
 NewWebSocketServer::~NewWebSocketServer()
 {
@@ -25,8 +154,7 @@ bool NewWebSocketServer::start(unsigned short port, size_t eventHandlerThreadCou
 
         _threadPool = new ThreadPool(eventHandlerThreadCount + 3);
 
-
-        _threadPool->addTask([]() {});
+        _threadPool->addTask(NewWebSocketServer::acceptClientsTask, this);
         // TODO: Add NewClients and HTTPWebSocketProtocol tasks
     }
 
@@ -40,6 +168,7 @@ void NewWebSocketServer::stop()
         _isStopping = true;
 
         delete _threadPool;
+        _threadPool = nullptr;
         _server.finish();
 
         _isStopping = false;
@@ -47,6 +176,11 @@ void NewWebSocketServer::stop()
 }
 
 // Setters
+
+void NewWebSocketServer::setTimeout(unsigned int milliseconds)
+{
+    _timeout = milliseconds;
+}
 
 void NewWebSocketServer::setAcceptNewClients(bool acceptNewClients)
 {
@@ -136,6 +270,11 @@ bool NewWebSocketServer::isAcceptingNewClients() const
 unsigned short NewWebSocketServer::getPort() const
 {
     return _server.getPort();
+}
+
+unsigned int NewWebSocketServer::getTimeout() const
+{
+    return _timeout;
 }
 
 std::string NewWebSocketServer::getServeFolder() const

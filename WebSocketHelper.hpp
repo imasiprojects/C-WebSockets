@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 
-namespace WebSocket
+namespace WebSocketHelper
 {
     static std::string mask(const std::string& text, unsigned char opCode = 0x1)
     {

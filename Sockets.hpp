@@ -86,6 +86,7 @@ class TCPClient
 public:
     TCPClient();
     TCPClient(std::string ip, unsigned short port);
+    TCPClient(SOCKET sock, std::string ip, unsigned short port);
     ~TCPClient();
     bool connect(std::string ip, unsigned short port);
     void connect(SOCKET sock, std::string ip, unsigned short port);

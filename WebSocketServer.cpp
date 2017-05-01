@@ -274,7 +274,7 @@ void WebSocketConnection::send(std::string key, std::string data)
 {
     if (this->_handShakeDone)
     {
-        this->_conn.send(WebSocket::mask((char) key.size() + key + data, 0x02));
+        this->_conn.send(WebSocketHelper::mask((char) key.size() + key + data, 0x02));
     }
 }
 
@@ -387,7 +387,7 @@ void WebSocketConnection::threadFunction()
                     buffer += this->_conn.recv(packetSize - buffer.size());
                 } while (buffer.size() < packetSize && sleep());
 
-                std::string data = hasMask ? WebSocket::unmask(mask, buffer) : buffer;
+                std::string data = hasMask ? WebSocketHelper::unmask(mask, buffer) : buffer;
 
                 if (fin)
                 {
@@ -471,7 +471,6 @@ void WebSocketConnection::threadFunction()
                     buffer += this->_conn.recv();
                 } while (buffer.rfind("\r\n\r\n") == std::string::npos && sleep());
 
-                std::map<std::string, std::string> header = HttpHelper::parseHeader(buffer);
                 _handShakeDone = performHandShake(buffer);
 
                 if (_handShakeDone)
@@ -572,7 +571,7 @@ bool WebSocketConnection::performHandShake(std::string buffer)
 void WebSocketConnection::ping()
 {
     _lastPingRequest = "Imasi Software Te Pingea"; // TODO: algo random here
-    this->_conn.send(WebSocket::mask(_lastPingRequest, 0x9));
+    this->_conn.send(WebSocketHelper::mask(_lastPingRequest, 0x9));
 }
 
 void WebSocketConnection::pong(std::string data)

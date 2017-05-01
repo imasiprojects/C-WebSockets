@@ -5,10 +5,11 @@
 #include <sstream>
 
 #include "Sockets.hpp"
-#include "WebSocketServer.hpp"
+//#include "WebSocketServer.hpp"
+#include "NewWebSocketServer.hpp"
 
 
-class CustomConnection : public WebSocketConnection
+/*class CustomConnection : public WebSocketConnection
 {
     static int nextId;
     int id;
@@ -82,14 +83,19 @@ void startServer()
     {
         std::cout << "Server couldn't be started" << std::endl;
     }
-}
+}*/
 
 int main (int argc, char** argv)
 {
-    startServer ();
+    /*startServer ();
 
     std::cout << "Finished" << std::endl;
-    std::cin.get ();
+    std::cin.get ();*/
+
+    NewWebSocketServer server;
+    server.start(80, 10);
+
+    std::this_thread::sleep_for(std::chrono::minutes(10));
 
     return 0;
 }

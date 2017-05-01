@@ -134,6 +134,11 @@ TCPClient::TCPClient(std::string ip, unsigned short port) : _socket(0), _port(0)
     connect(ip, port);
 }
 
+TCPClient::TCPClient(SOCKET sock, std::string ip, unsigned short port)
+{
+    connect(sock, ip, port);
+}
+
 TCPClient::~TCPClient()
 {
     disconnect();
@@ -181,7 +186,6 @@ void TCPClient::connect(SOCKET sock, std::string ip, unsigned short port)
     _port = port;
     _socket = sock;
     _connected = true;
-    setBlocking(false);
     _blocking = false;
 }
 

@@ -3,14 +3,19 @@ Mutex en map (quizás, con lambda)
 Remember to call isRunning before adding tasks
 Add params for number of basic tasks on constructor, and add that many threads
 
+handshakeHandlerTask, after handshakeDone, is clearing the buffer. Maybe check contentLength or any other header
+
+Set server callbacks on runtime?
+
+Search for "TODO" to see more tasks
+
 
 SERVER DATA
 
 -List of Socket+State (HTTP/Handshake pending)
     -> State: Buffer + id of the current protocol part
 
--List of Socket+State (WebSockets)
-    -> State: Buffer + last ping string and time
+-List of WebSocketsConnection
 
 
 SERVER TASKS
@@ -22,11 +27,23 @@ SERVER TASKS
     -> If protocol is finished and it is HTTP, remove socket
     -> If it is WebSocket, move to connected sockets list
 
--Read WebSocket packets
+-Read and write WebSocket packets (One per connection)
+    -> Write the list of pending packets
     -> If packet sucesfully read, decipher Imasi protocol and create callback task
     -> If socket/packet error/timeout/closed, create closedSocket callback task and remove socket
 
 
 ACTUAL IMPLEMENTATION
-    -acceptClientsTask - 1 thread, always
-    -handshakeHandlerTask - N threads, enqueuing himself if pending handshake
+    - acceptClientsTask - 1 thread, always
+    - handshakeHandlerTask - N threads, enqueuing himself if pending handshake
+
+
+CONNECTIONS:
+    - ADD: Protocol task (_connectionMutex)
+    - REMOVE: Websocket task (_connectionMutex)
+    - WORK WITH CONNECTION: Websocket task (Callback, through WebSocketConnection)
+
+
+INTERFACES
+    - Connection: Send, Ping, Disconnect
+    - Server: SendBroadcast, PingAll

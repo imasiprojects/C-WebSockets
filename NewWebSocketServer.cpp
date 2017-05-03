@@ -8,6 +8,7 @@
 
 NewWebSocketConnection::NewWebSocketConnection(NewWebSocketServer* server, ClientData* clientData)
 {
+    _stopping = false;
     _server = server;
     _clientData = clientData;
 }
@@ -19,6 +20,16 @@ NewWebSocketConnection::~NewWebSocketConnection()
 void NewWebSocketConnection::send(std::string key, std::string data)
 {
     _clientData->client->send(WebSocketHelper::mask((char) key.size() + key + data, 0x02));
+}
+
+void NewWebSocketConnection::stop()
+{
+    _stopping = true;
+}
+
+bool NewWebSocketConnection::isStopping() const
+{
+    return _stopping;
 }
 
 
@@ -94,12 +105,16 @@ void NewWebSocketServer::handshakeHandlerTask(NewWebSocketServer* webSocketServe
         }
         else
         {
-            if (buffer.rfind("\r\n\r\n") != std::string::npos)
+            size_t headerEndPosition = buffer.rfind("\r\n\r\n");
+
+            if (headerEndPosition != std::string::npos)
             {
                 bool _handShakeDone = performHandshake(clientData);
 
                 if (_handShakeDone)
                 {
+                    clientData->buffer.clear();
+
                     WSInstantiator instantiator =  webSocketServer->getInstantiator();
                     WSEventCallback newClientCallback = webSocketServer->getNewClientCallback();
 
@@ -119,15 +134,66 @@ void NewWebSocketServer::handshakeHandlerTask(NewWebSocketServer* webSocketServe
                         newClientCallback(webSocketServer, connection);
                     }
 
-                    // TODO: Add to list of clients
+                    webSocketServer->_connectionsMutex.lock();
+                    auto connectionIt = webSocketServer->_connections.insert(webSocketServer->_connections.end(), connection);
+                    webSocketServer->_connectionsMutex.unlock();
+
+                    webSocketServer->_threadPool->addTask(NewWebSocketServer::webSocketManagerTask, webSocketServer, connectionIt);
                 }
                 else
                 {
                     // TODO: HTTP
+
+                    delete clientData->client;
+                    delete clientData;
                 }
             }
+            else
+            {
+                webSocketServer->_threadPool->addTask(NewWebSocketServer::acceptClientsTask, webSocketServer);
+            }
         }
+    }
+}
 
+void NewWebSocketServer::webSocketManagerTask(NewWebSocketServer* webSocketServer, std::list<NewWebSocketConnection*>::iterator connectionIt)
+{
+    NewWebSocketConnection* connection = *connectionIt;
+
+    if (!connection->isStopping())
+    {
+        std::list<std::string> dataToBeSent;
+
+        connection->_dataPendingToBeSentMutex.lock();
+        connection->_dataPendingToBeSent.swap(dataToBeSent);
+        connection->_dataPendingToBeSentMutex.unlock();
+
+        for (auto data : dataToBeSent)
+        {
+            if (!connection->_clientData->client->send(data))
+            {
+                connection->stop();
+
+                break;
+            }
+        }
+    }
+
+    // TODO: Receive data, save it into the buffer
+
+    if (connection->isStopping())
+    {
+        delete connection->_clientData->client;
+        delete connection->_clientData;
+        delete connection;
+
+        webSocketServer->_connectionsMutex.lock();
+        webSocketServer->_connections.erase(connectionIt);
+        webSocketServer->_connectionsMutex.unlock();
+    }
+    else
+    {
+        webSocketServer->_threadPool->addTask(NewWebSocketServer::webSocketManagerTask, webSocketServer, connectionIt);
     }
 }
 
@@ -152,10 +218,9 @@ bool NewWebSocketServer::start(unsigned short port, size_t eventHandlerThreadCou
     {
         _server.setBlocking(false);
 
-        _threadPool = new ThreadPool(eventHandlerThreadCount + 3);
+        _threadPool = new ThreadPool(eventHandlerThreadCount + 2);
 
         _threadPool->addTask(NewWebSocketServer::acceptClientsTask, this);
-        // TODO: Add NewClients and HTTPWebSocketProtocol tasks
     }
 
     return false;
@@ -170,6 +235,19 @@ void NewWebSocketServer::stop()
         delete _threadPool;
         _threadPool = nullptr;
         _server.finish();
+
+        for (auto clientData : _rawTCPClients)
+        {
+            delete clientData->client;
+            delete clientData;
+        }
+
+        for (auto connection : _connections)
+        {
+            delete connection->_clientData->client;
+            delete connection->_clientData;
+            delete connection;
+        }
 
         _isStopping = false;
     }

@@ -31,12 +31,19 @@ struct ClientData
 
 class NewWebSocketConnection
 {
+    friend class NewWebSocketServer;
+
     ClientData* _clientData;
+
+    std::mutex _dataPendingToBeSentMutex;
+    std::list<std::string> _dataPendingToBeSent;
 
     NewWebSocketServer* _server;
 
     std::string _lastPingRequest;
     clock_t _lastPingRequestTime;
+
+    bool _stopping;
 
 public:
     NewWebSocketConnection(NewWebSocketServer* server, ClientData* clientData);
@@ -49,6 +56,10 @@ public:
 
     void ping();
     void pong(std::string data);
+
+    void stop();
+
+    bool isStopping() const;
 };
 
 class NewWebSocketServer
@@ -58,6 +69,9 @@ class NewWebSocketServer
 
     std::mutex _rawTCPClientsMutex;
     std::list<ClientData*> _rawTCPClients;
+
+    std::mutex _connectionsMutex;
+    std::list<NewWebSocketConnection*> _connections;
 
     bool _isStopping;
     bool _acceptNewClients;
@@ -86,6 +100,7 @@ class NewWebSocketServer
 
     static void acceptClientsTask(NewWebSocketServer*);
     static void handshakeHandlerTask(NewWebSocketServer*);
+    static void webSocketManagerTask(NewWebSocketServer*, std::list<NewWebSocketConnection*>::iterator);
 
 public:
     NewWebSocketServer();

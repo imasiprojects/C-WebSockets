@@ -8,15 +8,15 @@
 #include "NewWebSocketServer.hpp"
 
 
-/*class CustomConnection : public WebSocketConnection
+class CustomConnection : public NewWebSocketConnection
 {
     static int nextId;
     int id;
 
 public:
 
-    CustomConnection (WebSocketServer* server, Connection conn)
-        : WebSocketConnection (server, conn), id (0)
+    CustomConnection (NewWebSocketServer* server, ClientData* clientData)
+        : NewWebSocketConnection(server, clientData), id (0)
     {
     }
 
@@ -38,11 +38,11 @@ public:
 int CustomConnection::nextId = 1;
 
 
-void startServer()
+NewWebSocketServer* startServer()
 {
-    WebSocketServer server;
+    NewWebSocketServer* server = new NewWebSocketServer();
 
-    server.setNewClientCallback([](WebSocketServer* server, WebSocketConnection* connection)
+    server->setNewClientCallback([](NewWebSocketServer* server, NewWebSocketConnection* connection)
     {
         CustomConnection* conn = (CustomConnection*) connection;
         conn->setId();
@@ -50,51 +50,62 @@ void startServer()
         connection->send("saludo", "hola");
     });
 
-    server.setClosedClientCallback([](WebSocketServer* server, WebSocketConnection* connection)
+    server->setClosedClientCallback([](NewWebSocketServer* server, NewWebSocketConnection* connection)
     {
         CustomConnection* conn = (CustomConnection*) connection;
         std::cout << "Client with ID: " << conn->getId() << " disconnected." << std::endl;
     });
 
-    server.setUnknownMessageCallback([](WebSocketServer* server, WebSocketConnection* connection, std::string key, std::string data)
+    server->setUnknownMessageCallback([](NewWebSocketServer* server, NewWebSocketConnection* connection, std::string key, std::string data)
     {
         CustomConnection* conn = (CustomConnection*) connection;
         std::cout << "ID: " << conn->getId() << " -> Unknown: [" << key << "] = " << data << std::endl;
         connection->send("his", "\x01\x02\x03\x04");
     });
 
-    server.setDataCallback("Prueba", [](WebSocketServer* server, WebSocketConnection* connection, std::string key, std::string data)
+    server->setDataCallback("Prueba", [](NewWebSocketServer* server, NewWebSocketConnection* connection, std::string key, std::string data)
     {
         CustomConnection* conn = (CustomConnection*) connection;
         std::cout << "Id: " << conn->getId() << " -> [" << key << "] = " << data << std::endl;
-        server->sendPing();
+        server->pingAll("Ping a todos");
     });
 
-    server.setInstantiator([](WebSocketServer* server, Connection conn)->WebSocketConnection*
+    server->setInstantiator([](NewWebSocketServer* server, ClientData* clientData) -> NewWebSocketConnection*
     {
-        return new CustomConnection(server, conn);
+        return new CustomConnection(server, clientData);
     });
 
-    server.setServeFolder("../c-websockets");
-    server.setDefaultPage("client.html");
+    server->setServeFolder("../c-websockets");
+    server->setDefaultPage("client.html");
 
-    if (!server.startAndWait(80))
+    if (server->start(80, 10))
+    {
+        std::cout << "Server started" << std::endl;
+    }
+    else
     {
         std::cout << "Server couldn't be started" << std::endl;
+
+        delete server;
+        server = nullptr;
     }
-}*/
+
+    return server;
+}
 
 int main (int argc, char** argv)
 {
-    /*startServer ();
+    NewWebSocketServer* server = startServer();
 
-    std::cout << "Finished" << std::endl;
-    std::cin.get ();*/
+    if (server != nullptr)
+    {
+        while (server->isRunning())
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
 
-    NewWebSocketServer server;
-    server.start(80, 10);
-
-    std::this_thread::sleep_for(std::chrono::minutes(10));
+        delete server;
+    }
 
     return 0;
 }

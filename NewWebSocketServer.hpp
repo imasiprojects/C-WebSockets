@@ -45,21 +45,28 @@ class NewWebSocketConnection
 
     bool _stopping;
 
+    // WebSocket protocol data
+
+    char _fragmentedDataOpCode;
+    std::string _fragmentedData;
+
+    void pong(const std::string& data);
+
 public:
+
     NewWebSocketConnection(NewWebSocketServer* server, ClientData* clientData);
     NewWebSocketConnection(const NewWebSocketConnection&) = delete;
     virtual ~NewWebSocketConnection();
 
-    std::string getIp() const;
+    void send(const std::string& key, const std::string& data);
 
-    void send(std::string key, std::string data);
-
-    void ping();
-    void pong(std::string data);
+    void ping(const std::string& pingData);
 
     void stop();
 
     bool isStopping() const;
+
+    std::string getIp() const;
 };
 
 class NewWebSocketServer
@@ -111,12 +118,8 @@ public:
     bool start(unsigned short port, size_t eventHandlerThreadCount);
     void stop();
 
-
-    //bool acceptNewClient(); TASK
-    //bool clearClosedConnections(); MADE WHILE READING
-
-    void sendBroadcast(std::string key, std::string data);
-    void sendPing();
+    void sendBroadcast(const std::string& key, const std::string& data);
+    void pingAll(const std::string& pingData);
 
     // Setters
 

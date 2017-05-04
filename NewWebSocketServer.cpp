@@ -11,15 +11,36 @@ NewWebSocketConnection::NewWebSocketConnection(NewWebSocketServer* server, Clien
     _stopping = false;
     _server = server;
     _clientData = clientData;
+    _stopping = false;
+    _lastPingRequestTime = 0;
+    _fragmentedDataOpCode = 0;
 }
 
 NewWebSocketConnection::~NewWebSocketConnection()
 {
 }
 
-void NewWebSocketConnection::send(std::string key, std::string data)
+void NewWebSocketConnection::send(const std::string& key, const std::string& data)
 {
-    _clientData->client->send(WebSocketHelper::mask((char) key.size() + key + data, 0x02));
+    _dataPendingToBeSentMutex.lock();
+    _dataPendingToBeSent.emplace_back(WebSocketHelper::mask((char) key.size() + key + data, 0x02));
+    _dataPendingToBeSentMutex.unlock();
+}
+
+void NewWebSocketConnection::ping(const std::string& pingData)
+{
+    _lastPingRequest = pingData;
+    _dataPendingToBeSentMutex.lock();
+    _dataPendingToBeSent.emplace_back(WebSocketHelper::mask(_lastPingRequest, 0x9));
+    _dataPendingToBeSentMutex.unlock();
+    _lastPingRequestTime = clock();
+}
+
+void NewWebSocketConnection::pong(const std::string& pingData)
+{
+    _dataPendingToBeSentMutex.lock();
+    _dataPendingToBeSent.emplace_back(WebSocketHelper::mask(pingData, 0xA));
+    _dataPendingToBeSentMutex.unlock();
 }
 
 void NewWebSocketConnection::stop()
@@ -32,6 +53,10 @@ bool NewWebSocketConnection::isStopping() const
     return _stopping;
 }
 
+std::string NewWebSocketConnection::getIp() const
+{
+    return _clientData->client->getIp();
+}
 
 bool NewWebSocketServer::performHandshake(ClientData* clientData)
 {
@@ -65,7 +90,7 @@ void NewWebSocketServer::acceptClientsTask(NewWebSocketServer* webSocketServer)
             webSocketServer->_rawTCPClients.push_back(new ClientData{client, "", clock()});
             webSocketServer->_rawTCPClientsMutex.unlock();
 
-            webSocketServer->_threadPool->addTask(NewWebSocketServer::acceptClientsTask, webSocketServer);
+            webSocketServer->_threadPool->addTask(NewWebSocketServer::handshakeHandlerTask, webSocketServer);
         }
         else
         {
@@ -179,10 +204,155 @@ void NewWebSocketServer::webSocketManagerTask(NewWebSocketServer* webSocketServe
         }
     }
 
-    // TODO: Receive data, save it into the buffer
+    if (!connection->isStopping())
+    {
+        std::string& buffer = connection->_clientData->buffer;
+
+        buffer += connection->_clientData->client->recv();
+
+        if (buffer.size() >= 2)
+        {
+            bool fin = buffer[0] & 0x80;
+            char opCode = buffer[0] & 0xF;
+            bool hasMask = buffer[1] & 0x80;
+            uint64_t packetSize = buffer[1] & 0x7F;
+            char packetSizeLength = 1;
+
+            bool continueProtocol = true;
+
+            if (packetSize == 126)
+            {
+                packetSizeLength = 2;
+
+                if (buffer.size() >= 4)
+                {
+                    packetSize = *(uint16_t*) &buffer[2];
+                }
+                else
+                {
+                    continueProtocol = false;
+                }
+            }
+            else if (packetSize == 127)
+            {
+                packetSizeLength = 8;
+
+                if (buffer.size() >= 10)
+                {
+                    packetSize = *(uint64_t*) &buffer[2];
+                }
+                else
+                {
+                    continueProtocol = false;
+                }
+            }
+
+            if (continueProtocol && buffer.size() >= 1 + packetSizeLength + hasMask*4 + packetSize)
+            {
+                std::string data;
+
+                if (hasMask)
+                {
+                    std::string mask = buffer.substr(1 + packetSizeLength, 4);
+                    data = WebSocketHelper::unmask(mask, buffer.substr(1 + packetSizeLength + 4, packetSize));
+                }
+                else
+                {
+                    data = buffer.substr(1 + packetSizeLength, packetSize);
+                }
+
+                buffer.erase(0, 1 + packetSizeLength + hasMask * 4 + packetSize);
+
+                if (fin)
+                {
+                    if (opCode == 0x0)
+                    {
+                        opCode = connection->_fragmentedDataOpCode;
+                        data = connection->_fragmentedData + data;
+
+                        connection->_fragmentedDataOpCode = 0;
+                        connection->_fragmentedData.clear();
+                    }
+
+                    switch (opCode)
+                    {
+                        case 0x8: // Connection closed
+                        {
+                            connection->stop();
+                            break;
+                        }
+
+                        case 0x9: // Ping
+                        {
+                            connection->pong(data);
+                            break;
+                        }
+
+                        case 0xA: // Pong
+                        {
+                            if (data == connection->_lastPingRequest)
+                            {
+                                connection->_lastPingRequestTime = 0;
+                            }
+
+                            break;
+                        }
+
+                        default:
+                        {
+                            std::string key = data.substr(1, data[0]);
+                            std::string value = data.substr(data[0] + 1);
+
+                            const std::map<std::string, WSImasiCallback>& dataCallBacks = webSocketServer->getMessageCallbacks();
+                            auto it = dataCallBacks.find(key);
+
+                            if (it != dataCallBacks.end())
+                            {
+                                it->second(webSocketServer, connection, key, value);
+                            }
+                            else
+                            {
+                                WSImasiCallback unknownDataCallback = webSocketServer->getUnknownMessageCallback();
+
+                                if (unknownDataCallback != nullptr)
+                                {
+                                    unknownDataCallback(webSocketServer, connection, key, value);
+                                }
+                            }
+
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    if (opCode != 0x0)
+                    {
+                        connection->_fragmentedDataOpCode = opCode;
+                    }
+
+                    connection->_fragmentedData += data;
+                }
+
+            }
+        }
+    }
+
+    if (connection->_lastPingRequestTime != 0 &&
+        clock() - connection->_lastPingRequestTime > webSocketServer->_timeout)
+    {
+        connection->stop();
+    }
 
     if (connection->isStopping())
     {
+        auto closedClientCallback = webSocketServer->getClosedClientCallback();
+
+        if (closedClientCallback != nullptr)
+        {
+            closedClientCallback(webSocketServer, connection);
+        }
+
         delete connection->_clientData->client;
         delete connection->_clientData;
         delete connection;
@@ -221,6 +391,8 @@ bool NewWebSocketServer::start(unsigned short port, size_t eventHandlerThreadCou
         _threadPool = new ThreadPool(eventHandlerThreadCount + 2);
 
         _threadPool->addTask(NewWebSocketServer::acceptClientsTask, this);
+
+        return true;
     }
 
     return false;
@@ -251,6 +423,34 @@ void NewWebSocketServer::stop()
 
         _isStopping = false;
     }
+}
+
+void NewWebSocketServer::sendBroadcast(const std::string& key, const std::string& data)
+{
+    _connectionsMutex.lock();
+
+    std::string rawData = WebSocketHelper::mask((char) key.size() + key + data, 0x02);
+
+    for (auto connection : _connections)
+    {
+        connection->_dataPendingToBeSentMutex.lock();
+        connection->_dataPendingToBeSent.emplace_back(rawData);
+        connection->_dataPendingToBeSentMutex.unlock();
+    }
+
+    _connectionsMutex.unlock();
+}
+
+void NewWebSocketServer::pingAll(const std::string& pingData)
+{
+    _connectionsMutex.lock();
+
+    for (auto connection : _connections)
+    {
+        connection->ping(pingData);
+    }
+
+    _connectionsMutex.unlock();
 }
 
 // Setters

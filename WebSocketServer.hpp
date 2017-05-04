@@ -13,13 +13,13 @@
 
 // Temporal
 struct ClientData;
-class NewWebSocketConnection;
-class NewWebSocketServer;
+class WebSocketConnection;
+class WebSocketServer;
 
-using WSEventCallback = void(*)(NewWebSocketServer* server, NewWebSocketConnection* conn);
-using WSImasiCallback = void(*)(NewWebSocketServer* server, NewWebSocketConnection* conn, std::string key, std::string data);
-using WSInstantiator = NewWebSocketConnection*(*)(NewWebSocketServer* server, ClientData* clientData);
-using WSDestructor = void(*)(NewWebSocketServer* server, NewWebSocketConnection* conn);
+using WSEventCallback = void(*)(WebSocketServer* server, WebSocketConnection* conn);
+using WSImasiCallback = void(*)(WebSocketServer* server, WebSocketConnection* conn, std::string key, std::string data);
+using WSInstantiator = WebSocketConnection*(*)(WebSocketServer* server, ClientData* clientData);
+using WSDestructor = void(*)(WebSocketServer* server, WebSocketConnection* conn);
 
 
 struct ClientData
@@ -29,16 +29,16 @@ struct ClientData
     clock_t createdOn;
 };
 
-class NewWebSocketConnection
+class WebSocketConnection
 {
-    friend class NewWebSocketServer;
+    friend class WebSocketServer;
 
     ClientData* _clientData;
 
     std::mutex _dataPendingToBeSentMutex;
     std::list<std::string> _dataPendingToBeSent;
 
-    NewWebSocketServer* _server;
+    WebSocketServer* _server;
 
     std::string _lastPingRequest;
     clock_t _lastPingRequestTime;
@@ -54,9 +54,9 @@ class NewWebSocketConnection
 
 public:
 
-    NewWebSocketConnection(NewWebSocketServer* server, ClientData* clientData);
-    NewWebSocketConnection(const NewWebSocketConnection&) = delete;
-    virtual ~NewWebSocketConnection();
+    WebSocketConnection(WebSocketServer* server, ClientData* clientData);
+    WebSocketConnection(const WebSocketConnection&) = delete;
+    virtual ~WebSocketConnection();
 
     void send(const std::string& key, const std::string& data);
 
@@ -69,7 +69,7 @@ public:
     std::string getIp() const;
 };
 
-class NewWebSocketServer
+class WebSocketServer
 {
     ThreadPool* _threadPool;
     TCPRawServer _server;
@@ -78,7 +78,7 @@ class NewWebSocketServer
     std::list<ClientData*> _rawTCPClients;
 
     std::mutex _connectionsMutex;
-    std::list<NewWebSocketConnection*> _connections;
+    std::list<WebSocketConnection*> _connections;
 
     bool _isStopping;
     bool _acceptNewClients;
@@ -105,15 +105,15 @@ class NewWebSocketServer
 
     // Tasks
 
-    static void acceptClientsTask(NewWebSocketServer*);
-    static void handshakeHandlerTask(NewWebSocketServer*);
-    static void webSocketManagerTask(NewWebSocketServer*, std::list<NewWebSocketConnection*>::iterator);
+    static void acceptClientsTask(WebSocketServer*);
+    static void handshakeHandlerTask(WebSocketServer*);
+    static void webSocketManagerTask(WebSocketServer*, std::list<WebSocketConnection*>::iterator);
 
 public:
-    NewWebSocketServer();
-    NewWebSocketServer(const NewWebSocketServer&) = delete;
-    NewWebSocketServer(NewWebSocketServer&&) = default;
-    ~NewWebSocketServer();
+    WebSocketServer();
+    WebSocketServer(const WebSocketServer&) = delete;
+    WebSocketServer(WebSocketServer&&) = default;
+    ~WebSocketServer();
 
     bool start(unsigned short port, size_t eventHandlerThreadCount);
     void stop();

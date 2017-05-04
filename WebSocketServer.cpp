@@ -1,4 +1,4 @@
-#include "NewWebSocketServer.hpp"
+#include "WebSocketServer.hpp"
 
 #include "WebSocketHelper.hpp"
 #include "HttpHelper.hpp"
@@ -6,7 +6,7 @@
 #include "Base64.hpp"
 
 
-NewWebSocketConnection::NewWebSocketConnection(NewWebSocketServer* server, ClientData* clientData)
+WebSocketConnection::WebSocketConnection(WebSocketServer* server, ClientData* clientData)
 {
     _stopping = false;
     _server = server;
@@ -16,18 +16,18 @@ NewWebSocketConnection::NewWebSocketConnection(NewWebSocketServer* server, Clien
     _fragmentedDataOpCode = 0;
 }
 
-NewWebSocketConnection::~NewWebSocketConnection()
+WebSocketConnection::~WebSocketConnection()
 {
 }
 
-void NewWebSocketConnection::send(const std::string& key, const std::string& data)
+void WebSocketConnection::send(const std::string& key, const std::string& data)
 {
     _dataPendingToBeSentMutex.lock();
     _dataPendingToBeSent.emplace_back(WebSocketHelper::mask((char) key.size() + key + data, 0x02));
     _dataPendingToBeSentMutex.unlock();
 }
 
-void NewWebSocketConnection::ping(const std::string& pingData)
+void WebSocketConnection::ping(const std::string& pingData)
 {
     _lastPingRequest = pingData;
     _dataPendingToBeSentMutex.lock();
@@ -36,29 +36,29 @@ void NewWebSocketConnection::ping(const std::string& pingData)
     _lastPingRequestTime = clock();
 }
 
-void NewWebSocketConnection::pong(const std::string& pingData)
+void WebSocketConnection::pong(const std::string& pingData)
 {
     _dataPendingToBeSentMutex.lock();
     _dataPendingToBeSent.emplace_back(WebSocketHelper::mask(pingData, 0xA));
     _dataPendingToBeSentMutex.unlock();
 }
 
-void NewWebSocketConnection::stop()
+void WebSocketConnection::stop()
 {
     _stopping = true;
 }
 
-bool NewWebSocketConnection::isStopping() const
+bool WebSocketConnection::isStopping() const
 {
     return _stopping;
 }
 
-std::string NewWebSocketConnection::getIp() const
+std::string WebSocketConnection::getIp() const
 {
     return _clientData->client->getIp();
 }
 
-bool NewWebSocketServer::performHandshake(ClientData* clientData)
+bool WebSocketServer::performHandshake(ClientData* clientData)
 {
     std::string websocketKey = HttpHelper::getHeaderValue(clientData->buffer, "Sec-WebSocket-Key");
 
@@ -74,7 +74,7 @@ bool NewWebSocketServer::performHandshake(ClientData* clientData)
     return false;
 }
 
-void NewWebSocketServer::acceptClientsTask(NewWebSocketServer* webSocketServer)
+void WebSocketServer::acceptClientsTask(WebSocketServer* webSocketServer)
 {
     TCPRawServer& server = webSocketServer->_server;
 
@@ -90,7 +90,7 @@ void NewWebSocketServer::acceptClientsTask(NewWebSocketServer* webSocketServer)
             webSocketServer->_rawTCPClients.push_back(new ClientData{client, "", clock()});
             webSocketServer->_rawTCPClientsMutex.unlock();
 
-            webSocketServer->_threadPool->addTask(NewWebSocketServer::handshakeHandlerTask, webSocketServer);
+            webSocketServer->_threadPool->addTask(WebSocketServer::handshakeHandlerTask, webSocketServer);
         }
         else
         {
@@ -99,7 +99,7 @@ void NewWebSocketServer::acceptClientsTask(NewWebSocketServer* webSocketServer)
     }
 }
 
-void NewWebSocketServer::handshakeHandlerTask(NewWebSocketServer* webSocketServer)
+void WebSocketServer::handshakeHandlerTask(WebSocketServer* webSocketServer)
 {
     if (webSocketServer->isRunning())
     {
@@ -143,7 +143,7 @@ void NewWebSocketServer::handshakeHandlerTask(NewWebSocketServer* webSocketServe
                     WSInstantiator instantiator =  webSocketServer->getInstantiator();
                     WSEventCallback newClientCallback = webSocketServer->getNewClientCallback();
 
-                    NewWebSocketConnection* connection;
+                    WebSocketConnection* connection;
 
                     if (instantiator != nullptr)
                     {
@@ -151,7 +151,7 @@ void NewWebSocketServer::handshakeHandlerTask(NewWebSocketServer* webSocketServe
                     }
                     else
                     {
-                        connection = new NewWebSocketConnection(webSocketServer, clientData);
+                        connection = new WebSocketConnection(webSocketServer, clientData);
                     }
 
                     if (newClientCallback != nullptr)
@@ -163,7 +163,7 @@ void NewWebSocketServer::handshakeHandlerTask(NewWebSocketServer* webSocketServe
                     auto connectionIt = webSocketServer->_connections.insert(webSocketServer->_connections.end(), connection);
                     webSocketServer->_connectionsMutex.unlock();
 
-                    webSocketServer->_threadPool->addTask(NewWebSocketServer::webSocketManagerTask, webSocketServer, connectionIt);
+                    webSocketServer->_threadPool->addTask(WebSocketServer::webSocketManagerTask, webSocketServer, connectionIt);
                 }
                 else
                 {
@@ -175,15 +175,15 @@ void NewWebSocketServer::handshakeHandlerTask(NewWebSocketServer* webSocketServe
             }
             else
             {
-                webSocketServer->_threadPool->addTask(NewWebSocketServer::acceptClientsTask, webSocketServer);
+                webSocketServer->_threadPool->addTask(WebSocketServer::acceptClientsTask, webSocketServer);
             }
         }
     }
 }
 
-void NewWebSocketServer::webSocketManagerTask(NewWebSocketServer* webSocketServer, std::list<NewWebSocketConnection*>::iterator connectionIt)
+void WebSocketServer::webSocketManagerTask(WebSocketServer* webSocketServer, std::list<WebSocketConnection*>::iterator connectionIt)
 {
-    NewWebSocketConnection* connection = *connectionIt;
+    WebSocketConnection* connection = *connectionIt;
 
     if (!connection->isStopping())
     {
@@ -363,24 +363,24 @@ void NewWebSocketServer::webSocketManagerTask(NewWebSocketServer* webSocketServe
     }
     else
     {
-        webSocketServer->_threadPool->addTask(NewWebSocketServer::webSocketManagerTask, webSocketServer, connectionIt);
+        webSocketServer->_threadPool->addTask(WebSocketServer::webSocketManagerTask, webSocketServer, connectionIt);
     }
 }
 
 
-NewWebSocketServer::NewWebSocketServer()
+WebSocketServer::WebSocketServer()
     : _threadPool(nullptr)
     , _isStopping(false)
     , _acceptNewClients(true)
     , _timeout(1000)
 {}
 
-NewWebSocketServer::~NewWebSocketServer()
+WebSocketServer::~WebSocketServer()
 {
     stop();
 }
 
-bool NewWebSocketServer::start(unsigned short port, size_t eventHandlerThreadCount)
+bool WebSocketServer::start(unsigned short port, size_t eventHandlerThreadCount)
 {
     stop();
 
@@ -390,7 +390,7 @@ bool NewWebSocketServer::start(unsigned short port, size_t eventHandlerThreadCou
 
         _threadPool = new ThreadPool(eventHandlerThreadCount + 2);
 
-        _threadPool->addTask(NewWebSocketServer::acceptClientsTask, this);
+        _threadPool->addTask(WebSocketServer::acceptClientsTask, this);
 
         return true;
     }
@@ -398,7 +398,7 @@ bool NewWebSocketServer::start(unsigned short port, size_t eventHandlerThreadCou
     return false;
 }
 
-void NewWebSocketServer::stop()
+void WebSocketServer::stop()
 {
     if (isRunning())
     {
@@ -425,7 +425,7 @@ void NewWebSocketServer::stop()
     }
 }
 
-void NewWebSocketServer::sendBroadcast(const std::string& key, const std::string& data)
+void WebSocketServer::sendBroadcast(const std::string& key, const std::string& data)
 {
     _connectionsMutex.lock();
 
@@ -441,7 +441,7 @@ void NewWebSocketServer::sendBroadcast(const std::string& key, const std::string
     _connectionsMutex.unlock();
 }
 
-void NewWebSocketServer::pingAll(const std::string& pingData)
+void WebSocketServer::pingAll(const std::string& pingData)
 {
     _connectionsMutex.lock();
 
@@ -455,37 +455,37 @@ void NewWebSocketServer::pingAll(const std::string& pingData)
 
 // Setters
 
-void NewWebSocketServer::setTimeout(unsigned int milliseconds)
+void WebSocketServer::setTimeout(unsigned int milliseconds)
 {
     _timeout = milliseconds;
 }
 
-void NewWebSocketServer::setAcceptNewClients(bool acceptNewClients)
+void WebSocketServer::setAcceptNewClients(bool acceptNewClients)
 {
     _acceptNewClients = acceptNewClients;
 }
 
-void NewWebSocketServer::setServeFolder(std::string serveFolder)
+void WebSocketServer::setServeFolder(std::string serveFolder)
 {
     _serveFolder = serveFolder;
 }
 
-void NewWebSocketServer::setDefaultPage(std::string defaultPage)
+void WebSocketServer::setDefaultPage(std::string defaultPage)
 {
     _defaultPage = defaultPage;
 }
 
-void NewWebSocketServer::setInstantiator(WSInstantiator instantiator)
+void WebSocketServer::setInstantiator(WSInstantiator instantiator)
 {
     _instantiator = instantiator;
 }
 
-void NewWebSocketServer::setDestructor(WSDestructor destructor)
+void WebSocketServer::setDestructor(WSDestructor destructor)
 {
     _destructor = destructor;
 }
 
-bool NewWebSocketServer::setNewClientCallback(WSEventCallback callback)
+bool WebSocketServer::setNewClientCallback(WSEventCallback callback)
 {
     if (isRunning())
     {
@@ -497,7 +497,7 @@ bool NewWebSocketServer::setNewClientCallback(WSEventCallback callback)
     return true;
 }
 
-bool NewWebSocketServer::setClosedClientCallback(WSEventCallback callback)
+bool WebSocketServer::setClosedClientCallback(WSEventCallback callback)
 {
     if (isRunning())
     {
@@ -509,7 +509,7 @@ bool NewWebSocketServer::setClosedClientCallback(WSEventCallback callback)
     return true;
 }
 
-bool NewWebSocketServer::setUnknownMessageCallback(WSImasiCallback callback)
+bool WebSocketServer::setUnknownMessageCallback(WSImasiCallback callback)
 {
     if (isRunning())
     {
@@ -521,7 +521,7 @@ bool NewWebSocketServer::setUnknownMessageCallback(WSImasiCallback callback)
     return true;
 }
 
-bool NewWebSocketServer::setDataCallback(std::string key, WSImasiCallback callback)
+bool WebSocketServer::setDataCallback(std::string key, WSImasiCallback callback)
 {
     if (isRunning())
     {
@@ -535,63 +535,63 @@ bool NewWebSocketServer::setDataCallback(std::string key, WSImasiCallback callba
 
 // Getters
 
-bool NewWebSocketServer::isRunning() const
+bool WebSocketServer::isRunning() const
 {
     return _threadPool != nullptr && !_isStopping && _server.isOn();
 }
 
-bool NewWebSocketServer::isAcceptingNewClients() const
+bool WebSocketServer::isAcceptingNewClients() const
 {
     return _acceptNewClients;
 }
 
-unsigned short NewWebSocketServer::getPort() const
+unsigned short WebSocketServer::getPort() const
 {
     return _server.getPort();
 }
 
-unsigned int NewWebSocketServer::getTimeout() const
+unsigned int WebSocketServer::getTimeout() const
 {
     return _timeout;
 }
 
-std::string NewWebSocketServer::getServeFolder() const
+std::string WebSocketServer::getServeFolder() const
 {
     return _serveFolder;
 }
 
-std::string NewWebSocketServer::getDefaultPage() const
+std::string WebSocketServer::getDefaultPage() const
 {
     return _defaultPage;
 }
 
 
-WSInstantiator NewWebSocketServer::getInstantiator() const
+WSInstantiator WebSocketServer::getInstantiator() const
 {
     return _instantiator;
 }
 
-WSDestructor NewWebSocketServer::getDestructor() const
+WSDestructor WebSocketServer::getDestructor() const
 {
     return _destructor;
 }
 
-WSEventCallback NewWebSocketServer::getNewClientCallback() const
+WSEventCallback WebSocketServer::getNewClientCallback() const
 {
     return _onNewClient;
 }
 
-WSEventCallback NewWebSocketServer::getClosedClientCallback() const
+WSEventCallback WebSocketServer::getClosedClientCallback() const
 {
     return _onClosedClient;
 }
 
-WSImasiCallback NewWebSocketServer::getUnknownMessageCallback() const
+WSImasiCallback WebSocketServer::getUnknownMessageCallback() const
 {
     return _onUnknownMessage;
 }
 
-const std::map<std::string, WSImasiCallback>& NewWebSocketServer::getMessageCallbacks() const
+const std::map<std::string, WSImasiCallback>& WebSocketServer::getMessageCallbacks() const
 {
     return _messageCallbacks;
 }

@@ -167,7 +167,52 @@ void WebSocketServer::handshakeHandlerTask(WebSocketServer* webSocketServer)
                 }
                 else
                 {
-                    // TODO: HTTP
+                    /// HTTP Server
+
+                    std::string folder = webSocketServer->getServeFolder();
+
+                    if (folder != "")
+                    {
+                        std::string request = buffer.substr(0, buffer.find("HTTP") - 1);
+                        request = request.substr(request.find(" ") + 1);
+                        request = folder + request;
+
+                        if (request.size() == 0
+                            || request[request.size() - 1] == '/'
+                            || request[request.size() - 1] == '\\')
+                        {
+                            request += webSocketServer->getDefaultPage();
+                        }
+
+                        std::ifstream file(request, std::ios::binary | std::ios::ate);
+
+                        if (!file)
+                        {
+                            client.send("HTTP/1.1 404 NOT FOUND\r\nconnection: close\r\n\r\n");
+                        }
+                        else
+                        {
+                            size_t size = file.tellg();
+                            char* buffer = new char[4096];
+                            client.send("HTTP/1.1 200 OK\r\nconnection: close\r\ncontent-length:" + std::to_string(size) + "\r\n\r\n");
+                            file.seekg(0);
+
+                            while (size > 0)
+                            {
+                                file.read(buffer, 4096);
+                                size_t readed = file.gcount();
+
+                                if (readed > 0)
+                                {
+                                    client.send(std::string(buffer, readed));
+                                    size -= readed;
+                                }
+                            }
+
+                            delete[] buffer;
+                        }
+
+                    }
 
                     delete clientData->client;
                     delete clientData;
@@ -176,6 +221,8 @@ void WebSocketServer::handshakeHandlerTask(WebSocketServer* webSocketServer)
             else
             {
                 webSocketServer->_threadPool->addTask(WebSocketServer::acceptClientsTask, webSocketServer);
+
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
         }
     }
@@ -210,7 +257,11 @@ void WebSocketServer::webSocketManagerTask(WebSocketServer* webSocketServer, std
 
         buffer += connection->_clientData->client->recv();
 
-        if (buffer.size() >= 2)
+        if (!connection->_clientData->client->isConnected())
+        {
+            connection->stop();
+        }
+        else if (buffer.size() >= 2)
         {
             bool fin = buffer[0] & 0x80;
             char opCode = buffer[0] & 0xF;
@@ -364,6 +415,8 @@ void WebSocketServer::webSocketManagerTask(WebSocketServer* webSocketServer, std
     else
     {
         webSocketServer->_threadPool->addTask(WebSocketServer::webSocketManagerTask, webSocketServer, connectionIt);
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 }
 

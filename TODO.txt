@@ -35,7 +35,8 @@ SERVER TASKS
 
 ACTUAL IMPLEMENTATION
     - acceptClientsTask - 1 thread, always
-    - handshakeHandlerTask - N threads, enqueuing himself if pending handshake
+    - handshakeHandlerTask - N threads, enqueuing himself if pending handshake, taking drom list
+    - webSocketManagerTask - N threads, enqueuing himself always
 
 
 CONNECTIONS:

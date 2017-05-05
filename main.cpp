@@ -75,8 +75,10 @@ WebSocketServer* startServer()
         return new CustomConnection(server, clientData);
     });
 
-    server->setServeFolder("../c-websockets");
+    server->setServeFolder("/");
     server->setDefaultPage("client.html");
+
+    server->setTimeout(5000);
 
     if (server->start(80, 10))
     {

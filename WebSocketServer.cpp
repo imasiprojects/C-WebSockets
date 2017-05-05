@@ -184,11 +184,18 @@ void WebSocketServer::handshakeHandlerTask(WebSocketServer* webSocketServer)
                             request += webSocketServer->getDefaultPage();
                         }
 
-                        std::ifstream file(request, std::ios::binary | std::ios::ate);
+                        int leftTrimLength = 0;
+
+                        while (request[leftTrimLength] == '/' || request[leftTrimLength] == '\\')
+                        {
+                            ++leftTrimLength;
+                        }
+
+                        std::ifstream file(request.substr(leftTrimLength), std::ios::binary | std::ios::ate);
 
                         if (!file)
                         {
-                            client.send("HTTP/1.1 404 NOT FOUND\r\nconnection: close\r\n\r\n");
+                            client.send("HTTP/1.1 404 NOT FOUND\r\ncontent-length:14\r\nconnection: close\r\n\r\nFile not found");
                         }
                         else
                         {
@@ -220,7 +227,9 @@ void WebSocketServer::handshakeHandlerTask(WebSocketServer* webSocketServer)
             }
             else
             {
+                webSocketServer->_rawTCPClientsMutex.lock();
                 webSocketServer->_threadPool->addTask(WebSocketServer::acceptClientsTask, webSocketServer);
+                webSocketServer->_rawTCPClientsMutex.unlock();
 
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }

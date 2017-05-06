@@ -399,7 +399,7 @@ void WebSocketServer::webSocketManagerTask(WebSocketServer* webSocketServer, std
     }
 
     if (connection->_lastPingRequestTime != 0 &&
-        clock() - connection->_lastPingRequestTime > webSocketServer->_timeout)
+        clock() - connection->_lastPingRequestTime > webSocketServer->getTimeout())
     {
         connection->stop();
     }

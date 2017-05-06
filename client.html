@@ -3,6 +3,24 @@
 <head>
 	<title>WebSocket Test</title>
 
+    <style>
+        #receivedMessages {
+            border: 1px solid black;
+            overflow: scroll;
+            overflow-x: hidden;
+            height: 350px;
+        }
+
+        .message {
+            background-color: cyan;
+            border-radius: 10px;
+            padding: 7px;
+            margin: 2px;
+            box-shadow: 0px 0px 2px 0px gray inset;
+        }
+    </style>
+
+
 	<script type="text/javascript" src="imasiws.js"></script>
 	<script type="text/javascript">
 
@@ -10,28 +28,58 @@
 		
         imasiWs.onConnect = function()
         {
-			alert("Connected");
-			imasiWs.send("Hi", "Working");
-		}
+        };
+
+        imasiWs.onClose = function()
+        {
+            alert("Disconnected from the server");
+        };
 		
         imasiWs.onMessage = function(key, value)
         {
-	        alert("Received: {" + key + "} " + value);
-	    }
+            alert("Received unknown message: KEY{" + key + "}, VALUE{" + value + "}");
+        };
 
-        imasiWs.addEventListener('saludo', function(key, data)
+        imasiWs.addEventListener('setHeaderMessage', function(key, data)
         {
-	        alert('Event ' + key + ' received with data: ' + data);
-	    });
+            var headerMessage = document.getElementById('headerMessage');
+            var text = document.createTextNode(data);
 
-	    imasiWs.connect("localhost", 80);
+            headerMessage.innerHTML = "";
+            headerMessage.appendChild(text);
+        });
+
+        imasiWs.addEventListener('message', function(key, data)
+        {
+            var receivedMessages = document.getElementById('receivedMessages');
+            var newDiv = document.createElement('div');
+            var text = document.createTextNode(data);
+
+            newDiv.className = "message";
+            newDiv.appendChild(text);
+            receivedMessages.appendChild(newDiv);
+        });
+
+        imasiWs.connect("localhost", 80);
+
+
+        function sendMessage()
+        {
+            var message = document.getElementById('message').value;
+
+            if (message.length > 0)
+            {
+                imasiWs.send('message', message);
+            }
+        }
 
 	</script>
 
 </head>
 <body>
-
-    Refresh 4 fun
-
+    <h1 id='headerMessage'></h1>
+    <div id='receivedMessages'></div>
+    <textarea id="message"></textarea><br/>
+    <button onclick='sendMessage()'>Send</button>
 </body>
 </html>

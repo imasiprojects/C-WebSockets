@@ -10,17 +10,14 @@ ImasiSoftware.WebSocketClient = function()
 
     this.onConnect = function()
     {
-        alert("Connected");
     };
 
     this.onClose = function ()
     {
-        alert("Connection closed");
     };
 
     this.onError = function ()
     {
-        alert("Error");
     };
 
     this.onMessage = function(key, value) {};

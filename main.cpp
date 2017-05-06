@@ -2,7 +2,7 @@
 #pragma comment(lib, "wsock32.lib")
 
 #include <iostream>
-#include <sstream>
+#include <cmath>
 
 #include "Sockets.hpp"
 #include "WebSocketServer.hpp"
@@ -47,7 +47,7 @@ WebSocketServer* startServer()
         CustomConnection* conn = (CustomConnection*) connection;
         conn->setId();
         std::cout << "New client entered with IP: " << connection->getIp() << ", ID: " << conn->getId() << std::endl;
-        connection->send("saludo", "hola");
+        connection->send("setHeaderMessage", "Welcome to the server <imasi> :)");
     });
 
     server->setClosedClientCallback([](WebSocketServer* server, WebSocketConnection* connection)
@@ -63,11 +63,11 @@ WebSocketServer* startServer()
         connection->send("his", "\x01\x02\x03\x04");
     });
 
-    server->setDataCallback("Prueba", [](WebSocketServer* server, WebSocketConnection* connection, std::string key, std::string data)
+    server->setDataCallback("message", [](WebSocketServer* server, WebSocketConnection* connection, std::string key, std::string data)
     {
         CustomConnection* conn = (CustomConnection*) connection;
         std::cout << "Id: " << conn->getId() << " -> [" << key << "] = " << data << std::endl;
-        server->pingAll("Ping a todos");
+        server->sendBroadcast("message", std::to_string(conn->getId()) + ": " + data);
     });
 
     server->setInstantiator([](WebSocketServer* server, ClientData* clientData) -> WebSocketConnection*
@@ -78,7 +78,7 @@ WebSocketServer* startServer()
     server->setServeFolder("/");
     server->setDefaultPage("client.html");
 
-    server->setTimeout(5000);
+    server->setTimeout(2000);
 
     if (server->start(80, 10))
     {
@@ -97,13 +97,16 @@ WebSocketServer* startServer()
 
 int main (int argc, char** argv)
 {
+    srand(time(0));
+
     WebSocketServer* server = startServer();
 
     if (server != nullptr)
     {
         while (server->isRunning())
         {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+            server->pingAll("SERVER PING [" + std::to_string(rand()) + "]");
         }
 
         delete server;

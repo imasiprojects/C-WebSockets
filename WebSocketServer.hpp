@@ -6,7 +6,7 @@
 #include <utility>
 #include <mutex>
 #include <thread>
-#include <ctime>
+#include <chrono>
 
 #include "sockets.hpp"
 #include "ThreadPool.hpp"
@@ -26,7 +26,7 @@ struct ClientData
 {
     TCPClient* client;
     std::string buffer;
-    clock_t createdOn;
+    std::chrono::steady_clock::time_point createdOn;
 };
 
 class WebSocketConnection
@@ -40,8 +40,9 @@ class WebSocketConnection
 
     WebSocketServer* _server;
 
+    bool _isWaitingPingRequestResponse;
     std::string _lastPingRequest;
-    clock_t _lastPingRequestTime;
+    std::chrono::steady_clock::time_point _lastPingRequestTime;
 
     bool _stopping;
 
@@ -86,7 +87,7 @@ class WebSocketServer
     std::string _serveFolder;
     std::string _defaultPage;
 
-    unsigned int _timeout;
+    std::chrono::milliseconds _timeout;
 
     // Callbacks
 
@@ -145,7 +146,8 @@ public:
     bool isAcceptingNewClients() const;
     unsigned short getPort() const;
 
-    unsigned int getTimeout() const;
+    unsigned int getTimeoutAsMilliseconds() const;
+    std::chrono::milliseconds getTimeout() const;
 
     std::string getServeFolder() const;
     std::string getDefaultPage() const;

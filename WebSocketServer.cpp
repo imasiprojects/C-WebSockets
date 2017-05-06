@@ -11,8 +11,8 @@ WebSocketConnection::WebSocketConnection(WebSocketServer* server, ClientData* cl
     _stopping = false;
     _server = server;
     _clientData = clientData;
+    _isWaitingPingRequestResponse = false;
     _stopping = false;
-    _lastPingRequestTime = 0;
     _fragmentedDataOpCode = 0;
 }
 
@@ -33,7 +33,8 @@ void WebSocketConnection::ping(const std::string& pingData)
     _dataPendingToBeSentMutex.lock();
     _dataPendingToBeSent.emplace_back(WebSocketHelper::mask(_lastPingRequest, 0x9));
     _dataPendingToBeSentMutex.unlock();
-    _lastPingRequestTime = clock();
+    _lastPingRequestTime = std::chrono::steady_clock::now();
+    _isWaitingPingRequestResponse = true;
 }
 
 void WebSocketConnection::pong(const std::string& pingData)
@@ -87,7 +88,7 @@ void WebSocketServer::acceptClientsTask(WebSocketServer* webSocketServer)
             TCPClient* client = new TCPClient(connection.sock, connection.ip, server.getPort());
 
             webSocketServer->_rawTCPClientsMutex.lock();
-            webSocketServer->_rawTCPClients.push_back(new ClientData{client, "", clock()});
+            webSocketServer->_rawTCPClients.push_back(new ClientData{client, "", std::chrono::steady_clock::now()});
             webSocketServer->_rawTCPClientsMutex.unlock();
 
             webSocketServer->_threadPool->addTask(WebSocketServer::handshakeHandlerTask, webSocketServer);
@@ -123,7 +124,7 @@ void WebSocketServer::handshakeHandlerTask(WebSocketServer* webSocketServer)
 
         buffer += client.recv();
 
-        if (!client.isConnected() || clock() - clientData->createdOn >= webSocketServer->getTimeout())
+        if (!client.isConnected() || std::chrono::steady_clock::now() - clientData->createdOn >= webSocketServer->getTimeout())
         {
             delete clientData->client;
             delete clientData;
@@ -228,10 +229,10 @@ void WebSocketServer::handshakeHandlerTask(WebSocketServer* webSocketServer)
             else
             {
                 webSocketServer->_rawTCPClientsMutex.lock();
-                webSocketServer->_threadPool->addTask(WebSocketServer::acceptClientsTask, webSocketServer);
+                webSocketServer->_rawTCPClients.emplace_back(clientData);
                 webSocketServer->_rawTCPClientsMutex.unlock();
 
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                webSocketServer->_threadPool->addTask(WebSocketServer::acceptClientsTask, webSocketServer);
             }
         }
     }
@@ -352,7 +353,7 @@ void WebSocketServer::webSocketManagerTask(WebSocketServer* webSocketServer, std
                         {
                             if (data == connection->_lastPingRequest)
                             {
-                                connection->_lastPingRequestTime = 0;
+                                connection->_isWaitingPingRequestResponse = false;
                             }
 
                             break;
@@ -398,8 +399,8 @@ void WebSocketServer::webSocketManagerTask(WebSocketServer* webSocketServer, std
         }
     }
 
-    if (connection->_lastPingRequestTime != 0 &&
-        clock() - connection->_lastPingRequestTime > webSocketServer->getTimeout())
+    if (connection->_isWaitingPingRequestResponse &&
+        std::chrono::steady_clock::now() - connection->_lastPingRequestTime > webSocketServer->getTimeout())
     {
         connection->stop();
     }
@@ -519,7 +520,7 @@ void WebSocketServer::pingAll(const std::string& pingData)
 
 void WebSocketServer::setTimeout(unsigned int milliseconds)
 {
-    _timeout = milliseconds;
+    _timeout = std::chrono::milliseconds(milliseconds);
 }
 
 void WebSocketServer::setAcceptNewClients(bool acceptNewClients)
@@ -612,7 +613,12 @@ unsigned short WebSocketServer::getPort() const
     return _server.getPort();
 }
 
-unsigned int WebSocketServer::getTimeout() const
+unsigned int WebSocketServer::getTimeoutAsMilliseconds() const
+{
+    return _timeout.count();
+}
+
+std::chrono::milliseconds WebSocketServer::getTimeout() const
 {
     return _timeout;
 }

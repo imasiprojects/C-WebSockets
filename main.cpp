@@ -47,7 +47,7 @@ WebSocketServer* startServer()
         CustomConnection* conn = (CustomConnection*) connection;
         conn->setId();
         std::cout << "New client entered with IP: " << connection->getIp() << ", ID: " << conn->getId() << std::endl;
-        connection->send("setHeaderMessage", "Welcome to the server <imasi> :)");
+        connection->send("setHeaderMessage", "Welcome to the server. You are the client <" + std::to_string(conn->getId()) + ">");
     });
 
     server->setClosedClientCallback([](WebSocketServer* server, WebSocketConnection* connection)

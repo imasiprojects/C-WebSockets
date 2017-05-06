@@ -232,7 +232,7 @@ void WebSocketServer::handshakeHandlerTask(WebSocketServer* webSocketServer)
                 webSocketServer->_rawTCPClients.emplace_back(clientData);
                 webSocketServer->_rawTCPClientsMutex.unlock();
 
-                webSocketServer->_threadPool->addTask(WebSocketServer::acceptClientsTask, webSocketServer);
+                webSocketServer->_threadPool->addTask(WebSocketServer::handshakeHandlerTask, webSocketServer);
             }
         }
     }
@@ -416,7 +416,17 @@ void WebSocketServer::webSocketManagerTask(WebSocketServer* webSocketServer, std
 
         delete connection->_clientData->client;
         delete connection->_clientData;
-        delete connection;
+
+        WSDestructor destructorCallback = webSocketServer->getDestructor();
+
+        if (destructorCallback != nullptr)
+        {
+            destructorCallback(webSocketServer, connection);
+        }
+        else
+        {
+            delete connection;
+        }
 
         webSocketServer->_connectionsMutex.lock();
         webSocketServer->_connections.erase(connectionIt);
@@ -490,15 +500,23 @@ void WebSocketServer::stop()
 
 void WebSocketServer::sendBroadcast(const std::string& key, const std::string& data)
 {
-    _connectionsMutex.lock();
+    sendBroadcastExcluding(nullptr, key, data);
+}
 
+void WebSocketServer::sendBroadcastExcluding(WebSocketConnection* excludedConnection, const std::string& key, const std::string& data)
+{
     std::string rawData = WebSocketHelper::mask((char) key.size() + key + data, 0x02);
 
-    for (auto connection : _connections)
+    _connectionsMutex.lock();
+
+    for (WebSocketConnection* connection : _connections)
     {
-        connection->_dataPendingToBeSentMutex.lock();
-        connection->_dataPendingToBeSent.emplace_back(rawData);
-        connection->_dataPendingToBeSentMutex.unlock();
+        if (connection != excludedConnection)
+        {
+            connection->_dataPendingToBeSentMutex.lock();
+            connection->_dataPendingToBeSent.emplace_back(rawData);
+            connection->_dataPendingToBeSentMutex.unlock();
+        }
     }
 
     _connectionsMutex.unlock();

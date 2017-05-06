@@ -120,6 +120,7 @@ public:
     void stop();
 
     void sendBroadcast(const std::string& key, const std::string& data);
+    void sendBroadcastExcluding(WebSocketConnection* connection, const std::string& key, const std::string& data);
     void pingAll(const std::string& pingData);
 
     // Setters

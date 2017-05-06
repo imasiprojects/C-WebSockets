@@ -65,11 +65,12 @@
 
         function sendMessage()
         {
-            var message = document.getElementById('message').value;
+            var message = document.getElementById('message');
 
-            if (message.length > 0)
+            if (message.value.length > 0)
             {
-                imasiWs.send('message', message);
+                imasiWs.send('message', message.value);
+                message.value = "";
             }
         }
 

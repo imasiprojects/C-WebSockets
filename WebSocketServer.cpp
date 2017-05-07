@@ -287,7 +287,7 @@ void WebSocketServer::webSocketManagerTask(WebSocketServer* webSocketServer, std
 
                 if (buffer.size() >= 4)
                 {
-                    packetSize = *(uint16_t*) &buffer[2];
+                    packetSize = ntohs(*(uint16_t*) &buffer[2]);
                 }
                 else
                 {
@@ -300,7 +300,7 @@ void WebSocketServer::webSocketManagerTask(WebSocketServer* webSocketServer, std
 
                 if (buffer.size() >= 10)
                 {
-                    packetSize = *(uint64_t*) &buffer[2];
+                    packetSize = ntohl(*(uint64_t*) &buffer[2]);
                 }
                 else
                 {
@@ -361,23 +361,32 @@ void WebSocketServer::webSocketManagerTask(WebSocketServer* webSocketServer, std
 
                         default:
                         {
-                            std::string key = data.substr(1, data[0]);
-                            std::string value = data.substr(data[0] + 1);
+                            uint8_t keyLength = *(uint8_t*) &data[0];
 
-                            const std::map<std::string, WSImasiCallback>& dataCallBacks = webSocketServer->getMessageCallbacks();
-                            auto it = dataCallBacks.find(key);
-
-                            if (it != dataCallBacks.end())
+                            if (keyLength > data.size() - 1)
                             {
-                                it->second(webSocketServer, connection, key, value);
+                                connection->stop();
                             }
                             else
                             {
-                                WSImasiCallback unknownDataCallback = webSocketServer->getUnknownMessageCallback();
+                                std::string key = data.substr(1, (uint8_t) data[0]);
+                                std::string value = data.substr(((uint8_t) data[0]) + 1);
 
-                                if (unknownDataCallback != nullptr)
+                                const std::map<std::string, WSImasiCallback>& dataCallBacks = webSocketServer->getMessageCallbacks();
+                                auto it = dataCallBacks.find(key);
+
+                                if (it != dataCallBacks.end())
                                 {
-                                    unknownDataCallback(webSocketServer, connection, key, value);
+                                    it->second(webSocketServer, connection, key, value);
+                                }
+                                else
+                                {
+                                    WSImasiCallback unknownDataCallback = webSocketServer->getUnknownMessageCallback();
+
+                                    if (unknownDataCallback != nullptr)
+                                    {
+                                        unknownDataCallback(webSocketServer, connection, key, value);
+                                    }
                                 }
                             }
 
@@ -434,9 +443,9 @@ void WebSocketServer::webSocketManagerTask(WebSocketServer* webSocketServer, std
     }
     else
     {
-        webSocketServer->_threadPool->addTask(WebSocketServer::webSocketManagerTask, webSocketServer, connectionIt);
-
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
+        webSocketServer->_threadPool->addTask(WebSocketServer::webSocketManagerTask, webSocketServer, connectionIt);
     }
 }
 

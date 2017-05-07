@@ -38,40 +38,4 @@ namespace WebSocketHelper
 
         return text;
     }
-
-    static std::string unmask(const std::string& packet)
-    {
-        // 0 3 M M M M D D D
-        // 0 126 X X M M M M D D D D D...126
-        // 0 127 X X X X X X X X M M M M D D D D D D D D...127
-
-        long packetSize = packet[1] & 127;
-        std::string mask, data;
-
-        switch (packetSize)
-        {
-            default:
-            {
-                mask = packet.substr(2, 4);
-                data = packet.substr(6);
-                break;
-            }
-
-            case 126:
-            {
-                mask = packet.substr(4, 4);
-                data = packet.substr(8);
-                break;
-            }
-
-            case 127:
-            {
-                mask = packet.substr(10, 4);
-                data = packet.substr(14);
-                break;
-            }
-        }
-
-        return unmask(mask, data);
-    }
-};
+}

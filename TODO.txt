@@ -1,6 +1,8 @@
 Remember to call isRunning before adding tasks
 Add params for number of basic tasks on constructor, and add that many threads
 
+set message size limits. Also for html headers
+
 handshakeHandlerTask, after handshakeDone, is clearing the buffer. Maybe check contentLength or any other header
 
 Set server callbacks on runtime?

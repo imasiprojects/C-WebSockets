@@ -60,7 +60,7 @@
             receivedMessages.appendChild(newDiv);
         });
 
-        imasiWs.connect("localhost", 80);
+        imasiWs.connect(window.location.hostname, window.location.port);
 
 
         function sendMessage()

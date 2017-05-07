@@ -48,19 +48,20 @@ WebSocketServer* startServer()
         conn->setId();
         std::cout << "New client entered with IP: " << connection->getIp() << ", ID: " << conn->getId() << std::endl;
         connection->send("setHeaderMessage", "Welcome to the server. You are the client <" + std::to_string(conn->getId()) + ">");
+        server->sendBroadcastExcluding(connection, "message", "New user connected: " + std::to_string(conn->getId()));
     });
 
     server->setClosedClientCallback([](WebSocketServer* server, WebSocketConnection* connection)
     {
         CustomConnection* conn = (CustomConnection*) connection;
         std::cout << "Client with ID: " << conn->getId() << " disconnected." << std::endl;
+        server->sendBroadcastExcluding(connection, "message", "User disconnected: " + std::to_string(conn->getId()));
     });
 
     server->setUnknownMessageCallback([](WebSocketServer* server, WebSocketConnection* connection, std::string key, std::string data)
     {
         CustomConnection* conn = (CustomConnection*) connection;
         std::cout << "ID: " << conn->getId() << " -> Unknown: [" << key << "] = " << data << std::endl;
-        connection->send("his", "\x01\x02\x03\x04");
     });
 
     server->setDataCallback("message", [](WebSocketServer* server, WebSocketConnection* connection, std::string key, std::string data)
@@ -106,7 +107,7 @@ int main (int argc, char** argv)
         while (server->isRunning())
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(5000));
-            server->pingAll("SERVER PING [" + std::to_string(rand()) + "]");
+            //server->pingAll("SERVER PING [" + std::to_string(rand()) + "]");
         }
 
         delete server;

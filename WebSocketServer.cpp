@@ -277,13 +277,13 @@ void WebSocketServer::webSocketManagerTask(WebSocketServer* webSocketServer, std
             char opCode = buffer[0] & 0xF;
             bool hasMask = buffer[1] & 0x80;
             uint64_t packetSize = buffer[1] & 0x7F;
-            char packetSizeLength = 1;
+            char extraPacketSizeLength = 0;
 
             bool continueProtocol = true;
 
             if (packetSize == 126)
             {
-                packetSizeLength = 2;
+                extraPacketSizeLength = 2;
 
                 if (buffer.size() >= 4)
                 {
@@ -296,7 +296,7 @@ void WebSocketServer::webSocketManagerTask(WebSocketServer* webSocketServer, std
             }
             else if (packetSize == 127)
             {
-                packetSizeLength = 8;
+                extraPacketSizeLength = 8;
 
                 if (buffer.size() >= 10)
                 {
@@ -308,21 +308,21 @@ void WebSocketServer::webSocketManagerTask(WebSocketServer* webSocketServer, std
                 }
             }
 
-            if (continueProtocol && buffer.size() >= 1 + packetSizeLength + hasMask*4 + packetSize)
+            if (continueProtocol && buffer.size() >= 2 + extraPacketSizeLength + hasMask*4 + packetSize)
             {
                 std::string data;
 
                 if (hasMask)
                 {
-                    std::string mask = buffer.substr(1 + packetSizeLength, 4);
-                    data = WebSocketHelper::unmask(mask, buffer.substr(1 + packetSizeLength + 4, packetSize));
+                    std::string mask = buffer.substr(2 + extraPacketSizeLength, 4);
+                    data = WebSocketHelper::unmask(mask, buffer.substr(2 + extraPacketSizeLength + 4, packetSize));
                 }
                 else
                 {
-                    data = buffer.substr(1 + packetSizeLength, packetSize);
+                    data = buffer.substr(2 + extraPacketSizeLength, packetSize);
                 }
 
-                buffer.erase(0, 1 + packetSizeLength + hasMask * 4 + packetSize);
+                buffer.erase(0, 2 + extraPacketSizeLength + hasMask * 4 + packetSize);
 
                 if (fin)
                 {

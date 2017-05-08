@@ -1,52 +1,55 @@
 #pragma once
-#include <iostream>
+#include <map>
 
-class HttpHelper
+namespace HttpHelper
 {
-    static bool parseHeaderField(std::string strField, std::pair<std::string, std::string>* field)
+    static bool tryParseHeaderField(std::string strField, std::pair<std::string, std::string>* outField)
     {
-        size_t pos = strField.find(":");
+        size_t keyEndIndex = strField.find(":");
 
-        if (pos == std::string::npos || pos == 0)
+        if (keyEndIndex == std::string::npos || keyEndIndex == 0)
         {
             return false;
         }
 
-        field->first = strField.substr(0, pos);
-        size_t p1 = strField.find_first_not_of(" \t\r\n", pos + 1),
-               p2 = strField.find_last_not_of(" \t\r\n");
+        outField->first = strField.substr(0, keyEndIndex);
 
-        if (p1 == std::string::npos || p2 == std::string::npos || p1 > p2)
+        size_t valueStartIndex = strField.find_first_not_of(" \t\r\n", keyEndIndex + 1);
+        size_t valueEndIndex = strField.find_last_not_of(" \t\r\n");
+        size_t valueLength = valueEndIndex - valueStartIndex + 1;
+
+        if (valueStartIndex == std::string::npos || valueEndIndex == std::string::npos || valueStartIndex > valueEndIndex)
         {
-            field->second = "";
+            outField->second = "";
         }
         else
         {
-            field->second = strField.substr(p1, p2 - p1 + 1);
+            outField->second = strField.substr(valueStartIndex, valueLength);
         }
 
         return true;
     }
 
-public:
     static std::map<std::string, std::string> parseHeader(std::string fullHeader)
     {
         std::map<std::string, std::string> headers;
-        size_t pos = 0,
-            last = 0;
         std::pair<std::string, std::string> field;
+
+        size_t fieldStartIndex = 0;
+        size_t fieldEndIndex;
 
         do
         {
-            pos = fullHeader.find("\r\n", last);
+            fieldEndIndex = fullHeader.find("\r\n", fieldStartIndex);
 
-            if (parseHeaderField(fullHeader.substr(last, pos - last), &field))
+            if (tryParseHeaderField(fullHeader.substr(fieldStartIndex, fieldEndIndex - fieldStartIndex), &field))
             {
                 headers.insert(field);
             }
 
-            last = pos + 2;
-        } while (pos != std::string::npos);
+            fieldStartIndex = fieldEndIndex + 2;
+        }
+        while (fieldEndIndex != std::string::npos);
 
         return headers;
     }
@@ -58,6 +61,7 @@ public:
         do
         {
             line = allHeaders.substr(0, allHeaders.find_first_of("\r\n"));
+
             if (line.find(headerName + ":") != std::string::npos)
             {
                 std::string value = line.substr(headerName.size() + 1);
@@ -76,8 +80,9 @@ public:
             {
                 allHeaders = allHeaders.substr(newPos + 2);
             }
-        } while (allHeaders.find("\r\n") != std::string::npos);
+        }
+        while (allHeaders.find("\r\n") != std::string::npos);
 
         return "";
     }
-};
+}

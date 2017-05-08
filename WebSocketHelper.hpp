@@ -4,7 +4,17 @@
 
 namespace WebSocketHelper
 {
-    static std::string mask(const std::string& text, unsigned char opCode = 0x1)
+    enum FrameOpCode
+    {
+        Continuation = 0,
+        Text = 1,
+        Binary = 2,
+        ConnectionClosed = 8,
+        Ping = 9,
+        Pong = 10,
+    };
+
+    static std::string mask(const std::string& text, FrameOpCode opCode = FrameOpCode::Text)
     {
         uint64_t length = text.size();
         std::string header;

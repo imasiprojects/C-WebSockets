@@ -8,7 +8,6 @@
 
 WebSocketConnection::WebSocketConnection(WebSocketServer* server, ClientData* clientData)
 {
-    _stopping = false;
     _server = server;
     _clientData = clientData;
     _isWaitingPingRequestResponse = false;
@@ -23,7 +22,7 @@ WebSocketConnection::~WebSocketConnection()
 void WebSocketConnection::send(const std::string& key, const std::string& data)
 {
     _dataPendingToBeSentMutex.lock();
-    _dataPendingToBeSent.emplace_back(WebSocketHelper::mask((char) key.size() + key + data, 0x02));
+    _dataPendingToBeSent.emplace_back(WebSocketHelper::mask((char) key.size() + key + data, WebSocketHelper::FrameOpCode::Binary));
     _dataPendingToBeSentMutex.unlock();
 }
 
@@ -31,7 +30,7 @@ void WebSocketConnection::ping(const std::string& pingData)
 {
     _lastPingRequest = pingData;
     _dataPendingToBeSentMutex.lock();
-    _dataPendingToBeSent.emplace_back(WebSocketHelper::mask(_lastPingRequest, 0x9));
+    _dataPendingToBeSent.emplace_back(WebSocketHelper::mask(_lastPingRequest, WebSocketHelper::FrameOpCode::Ping));
     _dataPendingToBeSentMutex.unlock();
     _lastPingRequestTime = std::chrono::steady_clock::now();
     _isWaitingPingRequestResponse = true;
@@ -40,7 +39,7 @@ void WebSocketConnection::ping(const std::string& pingData)
 void WebSocketConnection::pong(const std::string& pingData)
 {
     _dataPendingToBeSentMutex.lock();
-    _dataPendingToBeSent.emplace_back(WebSocketHelper::mask(pingData, 0xA));
+    _dataPendingToBeSent.emplace_back(WebSocketHelper::mask(pingData, WebSocketHelper::FrameOpCode::Pong));
     _dataPendingToBeSentMutex.unlock();
 }
 
@@ -250,7 +249,7 @@ void WebSocketServer::webSocketManagerTask(WebSocketServer* webSocketServer, std
         connection->_dataPendingToBeSent.swap(dataToBeSent);
         connection->_dataPendingToBeSentMutex.unlock();
 
-        for (auto data : dataToBeSent)
+        for (auto& data : dataToBeSent)
         {
             if (!connection->_clientData->client->send(data))
             {
@@ -326,7 +325,7 @@ void WebSocketServer::webSocketManagerTask(WebSocketServer* webSocketServer, std
 
                 if (fin)
                 {
-                    if (opCode == 0x0)
+                    if (opCode == WebSocketHelper::FrameOpCode::Continuation)
                     {
                         opCode = connection->_fragmentedDataOpCode;
                         data = connection->_fragmentedData + data;
@@ -337,19 +336,19 @@ void WebSocketServer::webSocketManagerTask(WebSocketServer* webSocketServer, std
 
                     switch (opCode)
                     {
-                        case 0x8: // Connection closed
+                        case WebSocketHelper::FrameOpCode::ConnectionClosed:
                         {
                             connection->stop();
                             break;
                         }
 
-                        case 0x9: // Ping
+                        case WebSocketHelper::FrameOpCode::Ping:
                         {
                             connection->pong(data);
                             break;
                         }
 
-                        case 0xA: // Pong
+                        case WebSocketHelper::FrameOpCode::Pong:
                         {
                             if (data == connection->_lastPingRequest)
                             {
@@ -396,7 +395,7 @@ void WebSocketServer::webSocketManagerTask(WebSocketServer* webSocketServer, std
                 }
                 else
                 {
-                    if (opCode != 0x0)
+                    if (opCode != WebSocketHelper::FrameOpCode::Continuation)
                     {
                         connection->_fragmentedDataOpCode = opCode;
                     }
@@ -514,7 +513,7 @@ void WebSocketServer::sendBroadcast(const std::string& key, const std::string& d
 
 void WebSocketServer::sendBroadcastExcluding(WebSocketConnection* excludedConnection, const std::string& key, const std::string& data)
 {
-    std::string rawData = WebSocketHelper::mask((char) key.size() + key + data, 0x02);
+    std::string rawData = WebSocketHelper::mask((char) key.size() + key + data, WebSocketHelper::FrameOpCode::Binary);
 
     _connectionsMutex.lock();
 

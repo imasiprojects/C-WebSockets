@@ -91,7 +91,7 @@ public:
     ThreadPool(size_t threadCount)
         : _running(new bool(true))
     {
-        for (size_t i = 0; i<threadCount; i++)
+        for (size_t i = 0; i < threadCount; i++)
         {
             _threads.emplace_back(
                 std::thread(

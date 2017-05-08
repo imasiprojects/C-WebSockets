@@ -16,16 +16,17 @@ class CustomConnection : public WebSocketConnection
 public:
 
     CustomConnection (WebSocketServer* server, ClientData* clientData)
-        : WebSocketConnection(server, clientData), id (0)
+        : WebSocketConnection(server, clientData)
+        , id(0)
     {
     }
 
-    int getId () const
+    int getId() const
     {
         return id;
     }
 
-    void setId ()
+    void setId()
     {
         if (id <= 0)
         {
@@ -76,7 +77,7 @@ WebSocketServer* startServer()
         return new CustomConnection(server, clientData);
     });
 
-    server->setServeFolder("/");
+    server->setServeFolder("c-websockets");
     server->setDefaultPage("client.html");
 
     server->setTimeout(2000);
